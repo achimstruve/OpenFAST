@@ -1660,7 +1660,7 @@ ENDDO
 
    
    ! Property sets value
-ALLOCATE(Init%XPropSets(Init%NXPropSets, XPropSetsCol), STAT=Sttus)
+ALLOCATE(Init%XPropSets(Init%NXPropSets + Init%NPropSets, XPropSetsCol), STAT=Sttus) !bas, expanded the allocated array in a way that it is capable to contain later converted circuler properties
    
 IF ( Sttus /= 0 )  THEN
    ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Error allocating XPropSets arrays'
