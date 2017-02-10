@@ -4114,7 +4114,7 @@ END SUBROUTINE OutSummary
 FUNCTION MemberLength(MemberID,Init,ErrStat,ErrMsg)
 !Function to calculate Member Length
     TYPE(SD_InitType), INTENT(IN)                :: Init        ! Input data for initialization routine, this structure contains many variables needed for summary file
-    INTEGER(IntKi),    INTENT(IN)   :: MemberID  !Member ID #
+    REAL(ReKi),    INTENT(IN)   :: MemberID  !Member ID #
     REAL(ReKi)     :: MemberLength  !Member Length
     INTEGER(IntKi),            INTENT(   OUT)  :: ErrStat     ! Error status of the operation
     CHARACTER(*),              INTENT(   OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
