@@ -118,7 +118,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    INTEGER                       :: I, J, n, Node, Node1, Node2, Prop, Prop1, Prop2   
    INTEGER                       :: OldJointIndex(Init%NJoints)
    INTEGER                       :: NNE      ! number of nodes per element
-   INTEGER                       :: MaxNProp
+   INTEGER                       :: MaxNXProp
    REAL(ReKi), ALLOCATABLE       :: TempProps(:, :)
    INTEGER, ALLOCATABLE          :: TempMembers(:, :) ,TempReacts(:,:)         
    INTEGER                       :: knode, kelem, kprop, nprop
@@ -144,7 +144,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    
    Init%NNode = Init%NJoints + ( Init%NDiv - 1 )*p%NMembers    ! Calculate total number of nodes according to divisions 
    Init%NElem = p%NMembers*Init%NDiv                           ! Total number of element   
-   MaxNProp   = Init%NPropSets + Init%NElem*NNE                ! Maximum possible number of property sets (temp): This is property set per element node, for all elements (bjj, added Init%NPropSets to account for possibility of entering many unused prop sets)
+   MaxNXProp   = Init%NPropSets + Init%NXPropSets + Init%NElem*NNE                ! Maximum possible number of property sets (temp): This is property set per element node, for all elements (bjj, added Init%NPropSets to account for possibility of entering many unused prop sets)(bas, added Init%NXPropSets to account for possibility of entering many unused xprop sets)
    
    ! Calculate total number of nodes and elements according to element types
    ! for 3-node or 4-node beam elements
@@ -165,7 +165,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    CALL AllocAry(Init%IntFc,      6*Init%NInterf,2,          'Init%IntFc',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
    CALL AllocAry(TempMembers,     p%NMembers,    MembersCol, 'TempMembers',     ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
-   CALL AllocAry(TempProps,       MaxNProp,      PropSetsCol,'TempProps',       ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
+   CALL AllocAry(TempProps,       MaxNXProp,      PropSetsCol,'TempProps',       ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
    CALL AllocAry(TempReacts,      p%NReact,      ReactCol,   'TempReacts',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
 
