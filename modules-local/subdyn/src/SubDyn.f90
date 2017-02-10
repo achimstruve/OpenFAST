@@ -1679,6 +1679,16 @@ DO I = 1, Init%NXPropSets
       CALL CleanUp()
       RETURN
    END IF
+   
+   !bas, check if current XPropSetID is equal to one of the PropSetIDs
+   DO J = 1, Init%NPropSets
+      IF (Init%XPropSets(I,1) == Init%PropSets(J,1)) THEN
+         ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each PropSetID should be set uniquely. Non-circular cross-sections must have different IDs than circular cross-sections.'
+         ErrStat = ErrID_Fatal
+         CALL CleanUp()
+         RETURN
+      ENDIF
+   ENDDO
       
 ENDDO   
 
