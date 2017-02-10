@@ -1682,62 +1682,6 @@ DO I = 1, Init%NXPropSets
       
 ENDDO   
 
-!---------------------- MEMBER COSINE MATRICES COSM(i,j) ------------------------
-
-   ! Skip the comment line.
-
-CALL ReadCom( UnIn, SDInputFile, ' Member direction cosine matrices ',ErrStat, ErrMsg, UnEc )
-
-IF ( ErrStat /= ErrID_None ) THEN
-   ErrStat = ErrID_Fatal
-   CALL CleanUp()
-   RETURN
-END IF
-
-   ! number of direction cosine matrices
-CALL ReadIVar ( UnIn, SDInputFile, Init%NCOSMs, 'NCOSMs', 'Number of unique direction cosine matrices',ErrStat, ErrMsg, UnEc  )
-IF ( ErrStat /= ErrID_None .OR. Init%NCOSMs < 0  )  THEN  !-RRD changed Propsets to NCONMs and some text in the next line
-   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NCOSMs must be >=0'
-   ErrStat = ErrID_Fatal
-   CALL CleanUp()
-   RETURN
-ENDIF
-
-   ! Skip two lines
-DO I = 1, 2
-   CALL ReadCom( UnIn, SDInputFile, ' Cosine Matrices Headers',ErrStat, ErrMsg, UnEc )
-
-   IF ( ErrStat /= ErrID_None ) THEN
-      ErrStat = ErrID_Fatal
-      CALL CleanUp()
-      RETURN
-   END IF
-END DO
-
-
-   ! Direction cosine matrices value
-ALLOCATE(Init%COSMs(Init%NCOSMs, COSMsCol), STAT=Sttus)
-   
-IF ( Sttus /= 0 )  THEN
-   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Error allocating COSMs arrays'
-   ErrStat = ErrID_Fatal
-   CALL CleanUp()
-   RETURN
-ENDIF
-
-
-DO I = 1, Init%NCOSMs
-
-   CALL ReadAry( UnIn, SDInputFile, Init%COSMs(I,:), COSMsCol, 'CosM', 'Cosine Matrix IDs  and Values ', ErrStat, ErrMsg, UnEc  )!-RRD changed text
-
-   IF ( ErrStat /= ErrID_None ) THEN
-      ErrStat = ErrID_Fatal
-      CALL CleanUp()
-      RETURN
-   END IF
-   
-   
-ENDDO   
 
 !------------------------ JOINT ADDITIONAL CONCENTRATED MASSES--------------------------
 
