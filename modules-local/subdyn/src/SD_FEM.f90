@@ -541,6 +541,27 @@ SUBROUTINE GetNewProp(k, E, G, rho, d, t, TempProps)
 END SUBROUTINE GetNewProp
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
+SUBROUTINE GetNewXProp(k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, TempProps)
+
+   
+   INTEGER   , INTENT(IN)   :: k
+   REAL(ReKi), INTENT(IN)   :: E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz
+   REAL(ReKi), INTENT(INOUT):: TempProps(:, :)
+   
+   TempProps(k, 1) = k
+   TempProps(k, 2) = E
+   TempProps(k, 3) = G
+   TempProps(k, 4) = rho
+   TempProps(k, 5) = A
+   TempProps(k, 6) = Ax
+   TempProps(k, 7) = Ay
+   TempProps(k, 8) = Ixx
+   TempProps(k, 9) = Iyy
+   TempProps(k, 10) = Jzz
+
+END SUBROUTINE GetNewXProp
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
 SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
 
    TYPE(SD_InitType),            INTENT(INOUT)  ::Init
