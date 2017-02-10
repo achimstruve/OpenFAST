@@ -237,7 +237,17 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
             END IF
             J = J + 1
          END DO
-      
+
+         !bas, search also in XPropSets for matching property sets. Note that double occurrence of PropSetIDs is impossible, because it has already been checked within the SubDyn:SD_Input subroutine.
+         J = 1
+         DO WHILE ( .NOT. found .AND. J <= Init%NXPropSets )
+            IF ( Prop == NINT(Init%XPropSets(J, 1)) ) THEN
+               p%Elems(I, n) = J                ! index of the property set n-3 (i.e., property sets 1 and 2)
+               found = .TRUE.
+            END IF
+            J = J + 1
+         END DO
+         
          IF ( .NOT. found) THEN
             CALL SetErrStat(ErrID_Fatal,' Member '//TRIM(Num2LStr(I))//' has PropSetID'//TRIM(Num2LStr(n-3))//' = '//& 
                                    TRIM(Num2LStr(Prop))//' which is not in the Member X-Section Property data!', ErrStat,ErrMsg,'SD_Discrt');
