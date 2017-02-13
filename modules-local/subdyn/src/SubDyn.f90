@@ -3934,14 +3934,10 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    !WRITE(UnSum, '('//Num2LStr(Init%NDiv + 1 )//'(I6))') ((Init%MemberNodes(i, j), j = 1, Init%NDiv+1), i = 1, p%NMembers)
    DO i=1,p%NMembers
        !Calculate member mass here; this should really be done somewhere else, yet it is not used anywhere else
-       !IT WILL HAVE TO BE MODIFIED FOR OTHER THAN CIRCULAR PIPE ELEMENTS
-       propids=Init%Members(i,4:5)
        mlength=MemberLength(Init%Members(i,1),Init,ErrStat,ErrMsg)
        IF (ErrStat .EQ. ErrID_None) THEN
-        WRITE(UnSum, '(I9,I10,I10, E15.6, A3,'//Num2LStr(Init%NDiv + 1 )//'(I6))')    Init%Members(i,1:3),                &
-        MemberMass(Init%PropSets(propids(1),4),Init%PropSets(propids(1),5),Init%PropSets(propids(1),6),   &
-                    Init%PropSets(propids(2),4),Init%PropSets(propids(2),5),Init%PropSets(propids(2),6), mlength, .TRUE.),  &
-               ' ',(Init%MemberNodes(i, j), j = 1, Init%NDiv+1)
+        WRITE(UnSum, '(I9,I10,I10, E15.6, A3,'//Num2LStr(Init%NDiv + 1 )//'(I6))')    Init%Members(i,1:3),  &
+               MemberXMass(i, Init, mlength), ' ',(Init%MemberNodes(i, j), j = 1, Init%NDiv+1)
        ELSE 
            RETURN
        ENDIF
@@ -3956,6 +3952,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
       DO j=1, p%NMembers
          IF ( Init%MemberElements(j, 1) == Init%Members(i, 1) ) THEN
             DirCos = p%ElemProps(Init%MemberElements(j, 2))%DirCos
+            EXIT
          ENDIF
       ENDDO
       DirCos=TRANSPOSE(DirCos) !This is now global to local
@@ -4165,6 +4162,39 @@ FUNCTION MemberMass(rho1,D1,t1,rho2,D2,t2,L,ctube)
     MemberMass= b0*a0*L +(a0*b1+b0*a1)*L**2/2. + (b0*a2+b1*a1)*L**3/3 + a2*b1*L**4/4.!Integral of rho*A dz
       
 END FUNCTION MemberMass
+
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
+
+FUNCTION MemberXMass(I, Init, L)
+    !This sub takes care of calculating member mass, given properties at the ends, keep units consistent
+    !Linear varying area changes are considered
+    TYPE(SD_InitType), INTENT(IN)         :: Init    ! Input data for initialization routine, this structure contains many variables needed for summary file
+    REAL(ReKi), INTENT(IN)                :: L       ! Density, and areas at members ends, Length of member
+    INTEGER(IntKi), INTENT(IN)            :: I       ! Member index
+
+    REAL(ReKi)              :: MemberXMass           ! calculated mass
+    !LOCALS
+    INTEGER(IntKi)          :: Prop_I1, Prop_I2, K   ! property indizes and counter
+    REAL(ReKi)              :: rho, A1, A2           ! temporary coefficients
+    
+    DO K = 1, Init%NXPropSets
+       IF ( Init%Members(I, 4) == Init%XPropSets(K, 1) ) THEN
+          Prop_I1 = K
+       
+       ELSEIF ( Init%Members(I, 5) == Init%XPropSets(K, 1) ) THEN
+          Prop_I2 = K   
+
+       ENDIF           
+    ENDDO
+    
+    rho = Init%XPropSets(Prop_I1, 4) !Density is not allowed to change within one member (This has been checked within SD_Discrt subroutine)
+    A1 = Init%XPropSets(Prop_I1, 5)
+    A2 = Init%XPropSets(Prop_I2, 5)
+    
+    MemberXMass = ( A1 + A2 ) / 2 * L * rho !Integral of rho*A dz
+      
+END FUNCTION MemberXMass
 
 
 !------------------------------------------------------------------------------------------------------
