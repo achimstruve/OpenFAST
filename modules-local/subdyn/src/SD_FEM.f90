@@ -481,15 +481,15 @@ ELSE ! NDiv = 1
 ENDIF ! if NDiv is greater than 1
 
 ! set the props in Init
-Init%NXProp = kprop
-CALL AllocAry(Init%Props, Init%NXProp, XPropSetsCol,  'Init%Props', ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
+Init%NProp = kprop
+CALL AllocAry(Init%Props, Init%NProp, XPropSetsCol,  'Init%Props', ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    IF (ErrStat >= AbortErrLev ) THEN
       CALL SetErrStat(ErrStat2,ErrMsg2, ErrStat,ErrMsg,'SD_Discrt');
       CALL CleanUp_Discrt()
    RETURN
 ENDIF
 
-Init%Props = TempProps(1:Init%NXProp, :)
+Init%Props = TempProps(1:Init%NProp, :)
 
 CALL CleanUp_Discrt()
 
@@ -597,14 +597,14 @@ SUBROUTINE ConvertPropSets(Init)
    DO I = 1, Init%NPropSets
              
       ! get the current circular properties
-      E   = Init%PropsSets(I, 2)
-      G   = Init%PropsSets(I, 3)
-      rho = Init%PropsSets(I, 4)
-      Da  = Init%PropsSets(I, 5)
-      t  = Init%PropsSets(I, 6)
+      E   = Init%PropSets(I, 2)
+      G   = Init%PropSets(I, 3)
+      rho = Init%PropSets(I, 4)
+      Da  = Init%PropSets(I, 5)
+      t  = Init%PropSets(I, 6)
                
       ! conversion from circular to general x properties
-      Ra = D / 2.0_ReKi
+      Ra = Da / 2.0_ReKi
       Ri = Ra - t
       Di = Ri * 2
             
