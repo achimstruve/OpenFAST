@@ -701,21 +701,18 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 4 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
       CALL CleanUp_AssembleKM()
       RETURN
+
+   ELSEIF  (Init%FEMMod == 1) THEN ! uniform Euler-Bernoulli
+      Shear = .false.
+
+   ELSEIF  (Init%FEMMod == 3) THEN ! uniform Timoshenko
+      Shear = .true.
          
    ELSE
       CALL SetErrStat ( ErrID_Fatal, 'FEMMod is not valid. Please choose from 1, 2, 3, and 4. ', ErrStat, ErrMsg, 'AssembleKM' )
       CALL CleanUp_AssembleKM()
       RETURN
          
-   ENDIF
-   
-   ! set logical shear variable
-   IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
-      Shear = .false.
-   
-   ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
-      Shear = .true.
-                        
    ENDIF
    
       ! for current application
