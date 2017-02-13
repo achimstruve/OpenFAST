@@ -3921,7 +3921,7 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
 
             !Calculate Ke, Me to be used for output
             CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, &
-            p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%kappa, p%elemprops(L)%YoungE,  & 
+            p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%Ax, p%elemprops(L)%Ay, p%elemprops(L)%YoungE,  & 
             p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst(I)%Ke(:,:,J,K2) )
             CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
             p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst(I)%Me(:,:,J,K2) )   
@@ -3988,7 +3988,7 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
                         
                   !Calculate Ke, Me to be used for output
                   CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, &
-                              p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%kappa, p%elemprops(L)%YoungE,  & 
+                              p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%Ax, p%elemprops(L)%Ay, p%elemprops(L)%YoungE,  & 
                               p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst2(I)%Ke2(:,:,K2) )
                   CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
                               p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst2(I)%Me2(:,:,K2) )      
@@ -4094,7 +4094,7 @@ ENDDO
              
               !Calculate Ke, Me to be used for output
               CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, &
-                              p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%kappa, p%elemprops(L)%YoungE,  & 
+                              p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%Ax, p%elemprops(L)%Ay, p%elemprops(L)%YoungE,  & 
                               p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst3(I)%Ke(:,:,1,K) )
               CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
                               p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Me(:,:,1,K) )   

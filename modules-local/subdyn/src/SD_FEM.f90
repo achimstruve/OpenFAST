@@ -161,6 +161,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    
    CALL AllocAry(Init%Nodes,      Init%NNode,    JointsCol,  'Init%Nodes',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    CALL AllocAry(Init%MemberNodes,p%NMembers,    Init%NDiv+1,'Init%MemberNodes',ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')  ! for two-node element only, otherwise the number of nodes in one element is different
+   CALL AllocAry(Init%MemberElements,p%NMembers,    Init%NDiv+1,'Init%MemberElements',ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
    CALL AllocAry(Init%BCs,        6*p%NReact,    2,          'Init%BCs',        ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') !!!! RRD: THIS MAY NEED TO CHANGE IF NOT ALL NODES ARE RESTRAINED
    CALL AllocAry(Init%IntFc,      6*Init%NInterf,2,          'Init%IntFc',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
@@ -188,6 +189,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    p%Elems = 0
    DO I = 1, p%NMembers
       p%Elems(I,     1) = I                     ! element/member number (not MemberID)
+      p%Elems(I,     6) = Init%Members(I, 1)    !bas, adds the MemberID to each element in order to get the orientation information for each element later
 !bjj: TODO: JMJ wants check that YoungE, ShearG, and MatDens are equal in the two properties because we aren't going to interpolate them. This should be less confusing for users.                                                
       
       
@@ -348,6 +350,7 @@ knode = Init%NJoints
 kelem = 0
 kprop = Init%NXPropSets
 Init%MemberNodes = 0
+Init%MemberElements = 0
 
 
 IF (Init%NDiv .GT. 1) THEN
@@ -369,6 +372,8 @@ IF (Init%NDiv .GT. 1) THEN
       
       Init%MemberNodes(I,           1) = Node1
       Init%MemberNodes(I, Init%NDiv+1) = Node2
+      
+      Init%MemberElements(I, 1) = p%Elems(I,     6) ! write current MemberID to Init%MemberElements
       
       IF  ( ( .not. EqualRealNos(TempProps(Prop1, 2),TempProps(Prop2, 2) ) ) &
        .OR. ( .not. EqualRealNos(TempProps(Prop1, 3),TempProps(Prop2, 3) ) ) &
@@ -442,6 +447,8 @@ IF (Init%NDiv .GT. 1) THEN
            nprop = Prop1 
       ENDIF
       
+      Init%MemberElements(I, 2) = kelem ! write first element number to Init%MemberElements for this member
+      
       ! interior nodes
       
       DO J = 2, (Init%NDiv-1)
@@ -466,17 +473,22 @@ IF (Init%NDiv .GT. 1) THEN
               CALL GetNewElem(kelem, knode-1, knode, nprop, nprop, p)         
                
          ENDIF
+         
+         Init%MemberElements(I, J+1) = kelem ! write next element number to Init%MemberElements for this member
       ENDDO
       
       ! the element connect to Node2
       kelem = kelem + 1
-      CALL GetNewElem(kelem, knode, Node2, nprop, Prop2, p)                
+      CALL GetNewElem(kelem, knode, Node2, nprop, Prop2, p) 
+      Init%MemberElements(I, Init%NDiv + 1) = kelem ! write last element number to Init%MemberElements for this member
 
    ENDDO ! loop over all members
 
 ELSE ! NDiv = 1
 
-   Init%MemberNodes(1:p%NMembers, 1:2) = p%Elems(1:Init%NElem, 2:3)   
+   Init%MemberNodes(1:p%NMembers, 1:2) = p%Elems(1:Init%NElem, 2:3)
+   Init%MemberElements(1:p%NMembers, 1) = p%Elems(1:Init%NElem, 6)
+   Init%MemberElements(1:p%NMembers, 2) = p%Elems(1:Init%NElem, 1)
 
 ENDIF ! if NDiv is greater than 1
 
@@ -588,8 +600,7 @@ SUBROUTINE ConvertPropSets(Init)
    INTEGER                  :: I, J
 
    REAL(ReKi)               :: Da, t, E, G, rho ! properties of a circular section
-   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, A, kappa, Ax, Ay, nu, ratioSq ! conversion entities
-   LOGICAL                  :: shear                         
+   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, kappa, A, Ax, Ay, nu, ratioSq ! conversion entities                       
 
    
    J = Init%NXPropSets + 1 ! start index for circular properties within XPropSet
@@ -615,11 +626,9 @@ SUBROUTINE ConvertPropSets(Init)
             
       ! calculate kappa, which is for a circular cross-section in each direction the same
       IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
-          Shear = .false.
           kappa = 0
                      
       ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
-          Shear = .true.
           ! kappa = 0.53            
                
           ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
@@ -665,11 +674,13 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    INTEGER                  :: N1, N2     ! starting node and ending node in the element
    INTEGER                  :: P1, P2     ! property set numbers for starting and ending nodes
 
-   REAL(ReKi)               :: D1, D2, t1, t2, E, G, rho ! properties of a section
-   REAL(ReKi)               :: x1, y1, z1, x2, y2, z2    ! coordinates of the nodes
+   REAL(ReKi)               :: E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz ! properties of a section
+   REAL(ReKi)               :: A1, A2, Ax1, Ax2, Ay1, Ay2, Ixx1, Ixx2, Iyy1, Iyy2, Jzz1, Jzz2 ! properties of each node from one element
+   REAL(ReKi)               :: X1, Y1, Z1, X2, Y2, Z2    ! coordinates of the nodes
+   REAL(ReKi)               :: MID                       ! Current MemberID
+   REAL(ReKi)               :: psi                       ! Orientation angle of the current cross-section
    REAL(ReKi)               :: DirCos(3, 3)              ! direction cosine matrices
    REAL(ReKi)               :: L                         ! length of the element
-   REAL(ReKi)               :: r1, r2, t, Iyy, Jzz, Ixx, A, kappa, nu, ratioSq, D_inner, D_outer
    LOGICAL                  :: shear
    REAL(ReKi), ALLOCATABLE  :: Ke(:,:), Me(:, :), FGe(:) ! element stiffness and mass matrices gravity force vector
    INTEGER, ALLOCATABLE     :: nn(:)                     ! node number in element 
@@ -679,6 +690,33 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    INTEGER(IntKi)           :: ErrStat2
    CHARACTER(1024)          :: ErrMsg2
 
+
+   !bas, FEMMod query is located out of the DO loop for efficiency (according to old comment from jj)
+   IF  (Init%FEMMod == 2) THEN ! tapered Euler-Bernoulli
+      CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 2 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
+      CALL CleanUp_AssembleKM()
+      RETURN
+         
+   ELSEIF  (Init%FEMMod == 4) THEN ! tapered Timoshenko
+      CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 4 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
+      CALL CleanUp_AssembleKM()
+      RETURN
+         
+   ELSE
+      CALL SetErrStat ( ErrID_Fatal, 'FEMMod is not valid. Please choose from 1, 2, 3, and 4. ', ErrStat, ErrMsg, 'AssembleKM' )
+      CALL CleanUp_AssembleKM()
+      RETURN
+         
+   ENDIF
+   
+   ! set logical shear variable
+   IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
+      Shear = .false.
+   
+   ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
+      Shear = .true.
+                        
+   ENDIF
    
       ! for current application
    IF ( (Init%FEMMod .LE. 3) .and. (Init%FEMMod .GE. 0)) THEN
@@ -687,7 +725,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       ErrStat = ErrID_Fatal
       ErrMsg = 'Invalid FEMMod in AssembleKM'
       RETURN
-   ENDIF                              
+   ENDIF                          
    
    ! total degrees of freedom of the system 
    Init%TDOF = 6*Init%NNode
@@ -717,8 +755,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    
    Init%K = 0.0_ReKi
    Init%M = 0.0_ReKi
-   Init%FG = 0.0_ReKi
-
+   Init%FG = 0.0_ReKi 
    
       ! loop over all elements
    DO I = 1, Init%NElem
@@ -733,100 +770,72 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       P1 = p%Elems(I, NNE + 2)
       P2 = p%Elems(I, NNE + 3)
       
+      MID = p%Elems(I, NNE + 4)
+      
       
       E   = Init%Props(P1, 2)
       G   = Init%Props(P1, 3)
       rho = Init%Props(P1, 4)
-      D1  = Init%Props(P1, 5)
-      t1  = Init%Props(P1, 6)
-      D2  = Init%Props(P2, 5)
-      t2  = Init%Props(P2, 6)
+      A1  = Init%Props(P1, 5)
+      Ax1  = Init%Props(P1, 6)
+      Ay1  = Init%Props(P1, 7)
+      Ixx1  = Init%Props(P1, 8)
+      Iyy1  = Init%Props(P1, 9)
+      Jzz1  = Init%Props(P1, 10)
+      A2  = Init%Props(P2, 5)
+      Ax2  = Init%Props(P2, 6)
+      Ay2  = Init%Props(P2, 7)
+      Ixx2  = Init%Props(P2, 8)
+      Iyy2  = Init%Props(P2, 9)
+      Jzz2  = Init%Props(P2, 10)
       
-      x1  = Init%Nodes(N1, 2)
-      y1  = Init%Nodes(N1, 3)
-      z1  = Init%Nodes(N1, 4)
+      X1  = Init%Nodes(N1, 2)
+      Y1  = Init%Nodes(N1, 3)
+      Z1  = Init%Nodes(N1, 4)
       
-      x2  = Init%Nodes(N2, 2)
-      y2  = Init%Nodes(N2, 3)
-      z2  = Init%Nodes(N2, 4)
-
-      CALL GetDirCos(X1, Y1, Z1, X2, Y2, Z2, DirCos, L, ErrStat2, ErrMsg2)
+      X2  = Init%Nodes(N2, 2)
+      Y2  = Init%Nodes(N2, 3)
+      Z2  = Init%Nodes(N2, 4)
+      
+      CALL Getpsi(Init, p, MID, X1, Y1, Z1, X2, Y2, Z2, psi, ErrStat2, ErrMsg2)
          CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'AssembleKM' )
          IF (ErrStat >= AbortErrLev) THEN
             CALL CleanUp_AssembleKM()
             RETURN
          END IF
       
+      CALL GetDirCos(X1, Y1, Z1, X2, Y2, Z2, DirCos, L, psi, ErrStat2, ErrMsg2)
+         CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'AssembleKM' )
+         IF (ErrStat >= AbortErrLev) THEN
+            CALL CleanUp_AssembleKM()
+            RETURN
+         END IF
          
-!BJJ: TODO: for efficiency, this if check should be OUTSIDE the DO loop. 
-      ! 1: uniform Euler-Bernouli
-      ! 3: uniform Timoshenko
-      IF ( (Init%FEMMod == 1).OR.(Init%FEMMod == 3)) THEN ! uniform element 
-         r1 = 0.25*(D1 + D2)
-         t  = 0.5*(t1+t2)
-         
-         IF ( EqualRealNos(t, 0.0_ReKi) ) THEN
-            r2 = 0
-         ELSE
-            r2 = r1 - t
-         ENDIF
-         
-         A = Pi_D*(r1*r1-r2*r2)
-         Ixx = 0.25*Pi_D*(r1**4-r2**4)
-         Iyy = Ixx
-         Jzz = 2.0*Ixx
-         
-         IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
-            Shear = .false.
-            kappa = 0
-         ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
-            Shear = .true.
-          ! kappa = 0.53            
-            
-               ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
-            nu = E / (2.0_ReKi*G) - 1.0_ReKi
-            D_outer = 2.0_ReKi * r1  ! average (outer) diameter
-            D_inner = D_outer - 2*t  ! remove 2x thickness to get inner diameter
-            ratioSq = ( D_inner / D_outer)**2
-            kappa =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
-                    / ( ( 1.0 + ratioSq )**2 * ( 7.0 + 14.0*nu + 8.0*nu**2 ) + 4.0 * ratioSq * ( 5.0 + 10.0*nu + 4.0 *nu**2 ) )
-                        
-         ENDIF
-         
-         p%ElemProps(i)%Area = A
-         p%ElemProps(i)%Length = L
-         p%ElemProps(i)%Ixx = Ixx
-         p%ElemProps(i)%Iyy = Iyy
-         p%ElemProps(i)%Jzz = Jzz
-         p%ElemProps(i)%Shear = Shear
-         p%ElemProps(i)%kappa = kappa
-         p%ElemProps(i)%YoungE = E
-         p%ElemProps(i)%ShearG = G
-         p%ElemProps(i)%Rho = rho
-         p%ElemProps(i)%DirCos = DirCos
+      A = (A1 + A2) / 2.0_ReKi
+      Ax = (Ax1 + Ax2) / 2.0_ReKi
+      Ay = (Ay1 + Ay2) / 2.0_ReKi
+      Ixx = (Ixx1 + Ixx2) / 2.0_ReKi
+      Iyy = (Iyy1 + Iyy2) / 2.0_ReKi
+      Jzz = (Jzz1 + Jzz2) / 2.0_ReKi
          
          
-         CALL ElemK(A, L, Ixx, Iyy, Jzz, Shear, kappa, E, G, DirCos, Ke)
-         CALL ElemM(A, L, Ixx, Iyy, Jzz, rho, DirCos, Me)
-         CALL ElemG(A, L, rho, DirCos, FGe, Init%g)
+      p%ElemProps(i)%Area = A
+      p%ElemProps(i)%Length = L
+      p%ElemProps(i)%Ixx = Ixx
+      p%ElemProps(i)%Iyy = Iyy
+      p%ElemProps(i)%Jzz = Jzz
+      p%ElemProps(i)%Shear = Shear
+      p%ElemProps(i)%Ax = Ax
+      p%ElemProps(i)%Ay = Ay
+      p%ElemProps(i)%YoungE = E
+      p%ElemProps(i)%ShearG = G
+      p%ElemProps(i)%Rho = rho
+      p%ElemProps(i)%DirCos = DirCos
          
-      ELSEIF  (Init%FEMMod == 2) THEN ! tapered Euler-Bernoulli
-         CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 2 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
-         CALL CleanUp_AssembleKM()
-         RETURN
          
-      ELSEIF  (Init%FEMMod == 4) THEN ! tapered Timoshenko
-         CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 4 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
-         CALL CleanUp_AssembleKM()
-         RETURN
-         
-      ELSE
-         CALL SetErrStat ( ErrID_Fatal, 'FEMMod is not valid. Please choose from 1, 2, 3, and 4. ', ErrStat, ErrMsg, 'AssembleKM' )
-         CALL CleanUp_AssembleKM()
-         RETURN
-         
-      ENDIF  
-                                                                                                                                                               
+      CALL ElemK(A, L, Ixx, Iyy, Jzz, Shear, Ax, Ay, E, G, DirCos, Ke)
+      CALL ElemM(A, L, Ixx, Iyy, Jzz, rho, DirCos, Me)
+      CALL ElemG(A, L, rho, DirCos, FGe, Init%g)                                                                                                                                                               
 
       
       ! assemble element matrices to global matrices
@@ -894,82 +903,158 @@ END SUBROUTINE AssembleKM
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE GetDirCos(X1, Y1, Z1, X2, Y2, Z2, DirCos, L, ErrStat, ErrMsg)
+SUBROUTINE GetDirCos(X1, Y1, Z1, X2, Y2, Z2, DirCos, Le, psi, ErrStat, ErrMsg)
    !This should be from local to global -RRD
    ! bjj: note that this is the transpose of what is normally considered the Direction Cosine Matrix  
    !      in the FAST framework. It seems to be used consistantly in the code (i.e., the transpose 
    !      of this matrix is used later).
    
    
-   REAL(ReKi) ,      INTENT(IN   )  :: x1, y1, z1, x2, y2, z2  ! (x,y,z) positions of two nodes making up an element
+   REAL(ReKi) ,      INTENT(IN   )  :: X1, Y1, Z1, X2, Y2, Z2  ! (x,y,z) positions of two nodes making up an element
+   REAL(ReKi) ,      INTENT(IN   )  :: psi                     ! Orientation angle of the cross-section
    REAL(ReKi) ,      INTENT(  OUT)  :: DirCos(3, 3)            ! calculated direction cosine matrix
-   REAL(ReKi) ,      INTENT(  OUT)  :: L                       ! length of element
+   REAL(ReKi) ,      INTENT(  OUT)  :: Le                       ! length of element
    
    INTEGER(IntKi),   INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
    CHARACTER(*),     INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
    
-   REAL(ReKi)                       ::  Dx,Dy,Dz, Dxy          ! distances between nodes
-!real(reki) :: dxyz         
+   REAL(ReKi)                       ::  Dx,Dy,Dz, Lexy          ! distances between nodes
+        
    ErrMsg  = ""
    ErrStat = ErrID_None
    
-   Dy=y2-y1
-   Dx=x2-x1
-   Dz=z2-z1
-   Dxy = sqrt( Dx**2 + Dy**2 )
-   L   = sqrt( Dx**2 + Dy**2 + Dz**2)
+   Dy=Y2-Y1
+   Dx=X2-X1
+   Dz=Z2-Z1
+   Lexy = sqrt( Dx**2 + Dy**2 )
+   Le   = sqrt( Dx**2 + Dy**2 + Dz**2)
    
-   IF ( EqualRealNos(L, 0.0_ReKi) ) THEN
+   IF ( EqualRealNos(Le, 0.0_ReKi) ) THEN
       ErrMsg = ' Same starting and ending location in the element.'
       ErrStat = ErrID_Fatal
       RETURN
    ENDIF
    
-   IF ( EqualRealNos(Dxy, 0.0_ReKi) ) THEN 
-      DirCos=0.0_ReKi    ! whole matrix set to 0
-      IF ( Dz < 0) THEN  !x is kept along global x
-         DirCos(1, 1) =  1.0_ReKi
-         DirCos(2, 2) = -1.0_ReKi
-         DirCos(3, 3) = -1.0_ReKi
-      ELSE
-         DirCos(1, 1) = 1.0_ReKi
-         DirCos(2, 2) = 1.0_ReKi
-         DirCos(3, 3) = 1.0_ReKi
-      ENDIF 
-   ELSE
-      DirCos(1, 1) =  Dy/Dxy
-      DirCos(1, 2) = +Dx*Dz/(L*Dxy)
-      DirCos(1, 3) =  Dx/L
+   DirCos(1, 1) = -Dy / Lexy * COS(psi) - ( ( Dx * Dz ) / ( Lexy * Le ) * SIN(psi) )
+   DirCos(1, 2) = -( -Dy / Lexy * SIN(psi) ) - ( ( Dx * Dz ) / ( Lexy * Le ) * COS(psi) )
+   DirCos(1, 3) =  Dx/Le
       
-      DirCos(2, 1) = -Dx/Dxy
-      DirCos(2, 2) = +Dz*Dy/(L*Dxy)
-      DirCos(2, 3) =  Dy/L
+   DirCos(2, 1) =  Dx / Lexy * COS(psi) + ( -Dy * Dz ) / ( Lexy * Le ) * SIN(psi)
+   DirCos(2, 2) = -( Dx / Lexy * SIN(psi) ) + ( -Dy * Dz ) / ( Lexy * Le ) * COS(psi)
+   DirCos(2, 3) =  Dy / Le
      
-      DirCos(3, 1) = 0.0_ReKi
-      DirCos(3, 2) = -Dxy/L
-      DirCos(3, 3) = +Dz/L
-   ENDIF
+   DirCos(3, 1) = Lexy / Le * SIN(psi)
+   DirCos(3, 2) = Lexy / Le * COS(psi)
+   DirCos(3, 3) = Dz / Le
 
 END SUBROUTINE GetDirCos
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE ElemK(A, L, Ixx, Iyy, Jzz, Shear, kappa, E, G, DirCos, K)
+SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
+   !This should be from local to global -RRD
+   ! bjj: note that this is the transpose of what is normally considered the Direction Cosine Matrix  
+   !      in the FAST framework. It seems to be used consistantly in the code (i.e., the transpose 
+   !      of this matrix is used later).
+
+   TYPE(SD_InitType),            INTENT(IN   )  :: Init
+   TYPE(SD_ParameterType),       INTENT(IN   )  :: p
+   REAL(ReKi) ,                  INTENT(IN   )  :: MID                     ! Current MemberID
+   REAL(ReKi) ,                  INTENT(  OUT)  :: psi                     ! Orientation angle according to information from member MID
+   
+   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
+   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
+   
+   INTEGER(IntKi)       :: I                       ! Counter index
+   REAL(ReKi)           :: S1, S2, S3, E1, E2, E3  ! (x,y,z) start and end coordinates of this element
+   REAL(ReKi)           :: PS(3), PE(3), SES(3)    ! Start point PS, end point PE and its subtraction as vectors. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: PA(3)                   ! 3rd orientation point PA of this member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: PAp(3), SApS(3)         ! Projected orientation point PAp and the with PS substracted resulting vector for this member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: ke_hat(3)               ! Unit vector along z_e axis of the current member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: lambda                  ! Scalar for point projection
+   REAL(ReKi)           :: La                      ! Length from node start point PS to projected point PAp
+   REAL(ReKi)           :: O_type                  ! Orientation type
+   INTEGER(IntKi)       :: MI                      ! Member index
+        
+   ErrMsg  = ""
+   ErrStat = ErrID_None
+   
+   ! get the index of the current member regardless of their sequence in Init%Members array
+   DO I = 1, p%NMembers
+       IF ( EqualRealNos(Init%Members(I, 1), MID) ) THEN
+          MI = I
+       ENDIF
+   ENDDO
+   
+   O_type = Init%Members(MI, 6)
+   
+   IF ( EqualRealNos(O_type, 1.0_ReKi) ) THEN
+      psi = Init%Members(MI, 7) * Pi_D / 180.0_ReKi ! convert user defined angle from deg into rad
+
+   ELSEIF ( EqualRealNos(O_type, 2.0_ReKi) ) THEN
+      !! point projection
+      ! get start, end and orientation point position vector
+      PS(1) = S1
+      PS(2) = S2
+      PS(3) = S3
+      PE(1) = E1
+      PE(2) = E2
+      PE(3) = E3
+      PA(1) = Init%Members(MI, 8)
+      PA(2) = Init%Members(MI, 9)
+      PA(3) = Init%Members(MI, 10)
+      
+      ! calculate unit vector along z_e axis
+      SES = PE - PS
+      ke_hat = SES / SQRT( SES(1)**2 + SES(2)**2 + SES(3)**2 )
+      
+      ! check if point PA lies on the z_e axis
+      IF ( ( PA(1) - PS(1) ) / ke_hat(1) ==  ( PA(2) - PS(2) ) / ke_hat(2) .AND. &
+           ( PA(1) - PS(1) ) / ke_hat(1) ==  ( PA(3) - PS(3) ) / ke_hat(3) ) THEN
+         
+         ErrMsg = ' Orientation point A is not allowed to lie on member axis z_e!'
+         ErrStat = ErrID_Fatal
+         RETURN
+           
+      ENDIF
+      
+      ! calculate lambda
+      lambda = ( ke_hat(3) +  ke_hat(1)**2 / ke_hat(3) + ke_hat(2)**2 / ke_hat(3)) &
+               / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
+               - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) )
+      
+      ! calculate projected point PAp
+      PAp = PA - 1 / lambda * ke_hat
+      
+      !! calculate orientation angle psi according to PAp
+      SApS = PAp - PS
+      La = SQRT( SApS(1)**2 + SApS(2)**2 + SApS(3)**2 )
+      psi = ASIN( ( PAp(3) - PS(3) ) / La )
+      
+   ELSE
+      ErrMsg = ' Member '//TRIM(Num2LStr(MID))//' has the undifined Orientation Type '//TRIM(Num2LStr(O_type))//'. Choose Orientation Type 1 or 2 instead.'
+      ErrStat = ErrID_Fatal
+      RETURN
+   
+   ENDIF
+
+END SUBROUTINE GetPsi
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
+
+SUBROUTINE ElemK(A, L, Ixx, Iyy, Jzz, Shear, Ax, Ay, E, G, DirCos, K)
    ! element stiffness matrix for classical beam elements
    ! shear is true  -- non-tapered Timoshenko beam 
    ! shear is false -- non-tapered Euler-Bernoulli beam 
 
-   REAL(ReKi), INTENT( IN)               :: A, L, Ixx, Iyy, Jzz, E, G, kappa
+   REAL(ReKi), INTENT( IN)               :: A, L, Ixx, Iyy, Jzz, Ax, Ay, E, G
    REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
    LOGICAL, INTENT( IN)                  :: Shear
    
    REAL(ReKi), INTENT(OUT)             :: K(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
          
-   REAL(ReKi)                            :: Ax, Ay, Kx, Ky
+   REAL(ReKi)                            :: Kx, Ky
    REAL(ReKi)                            :: DC(12, 12)
-   
-   Ax = kappa*A
-   Ay = kappa*A
    
    K = 0
    

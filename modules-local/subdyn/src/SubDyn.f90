@@ -3953,20 +3953,13 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    WRITE(UnSum, '(A, I6)') 'Direction Cosine Matrices for all Members: GLOBAL-2-LOCAL. No. of 3x3 matrices=', p%NMembers 
    WRITE(UnSum, '(A9,9(A15))')  'Member ID', 'DC(1,1)', 'DC(1,2)', 'DC(1,3)', 'DC(2,1)','DC(2,2)','DC(2,3)','DC(3,1)','DC(3,2)','DC(3,3)'
    DO i=1,p%NMembers
-       !Find the right index in the Nodes array for the selected JointID. This is horrible, but I do not know how to implement this search in a more efficient way
-       !The alternative would be to get an element that belongs to the member and use it with dircos
-       
-!BJJ:TODO:  DIDN'T we already calculate DirCos for each element? can't we use that here?       
-       DO j=1,Init%NNode
-           IF    ( NINT(Init%Nodes(j,1)) .EQ. Init%Members(i,2) )THEN 
-                XYZ1=Init%Nodes(Init%Members(i,2),2:4)
-           ELSEIF ( NINT(Init%Nodes(j,1)) .EQ. Init%Members(i,3) ) THEN 
-                XYZ2=Init%Nodes(Init%Members(i,3),2:4)
-           ENDIF
-       ENDDO    
-       CALL GetDirCos(XYZ1(1), XYZ1(2), XYZ1(3), XYZ2(1), XYZ2(2), XYZ2(3), DirCos, mlength, ErrStat, ErrMsg)
-       DirCos=TRANSPOSE(DirCos) !This is now global to local
-       WRITE(UnSum, '(I9,9(E15.6))') Init%Members(i,1), ((DirCos(k,j),j=1,3),k=1,3)
+      DO j=1, p%NMembers
+         IF ( Init%MemberElements(j, 1) == Init%Members(i, 1) ) THEN
+            DirCos = p%ElemProps(Init%MemberElements(j, 2))%DirCos
+         ENDIF
+      ENDDO
+      DirCos=TRANSPOSE(DirCos) !This is now global to local
+      WRITE(UnSum, '(I9,9(E15.6))') Init%Members(i,1), ((DirCos(k,j),j=1,3),k=1,3)
    ENDDO
 
    !-------------------------------------------------------------------------------------------------------------
