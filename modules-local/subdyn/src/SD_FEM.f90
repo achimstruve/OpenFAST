@@ -262,6 +262,8 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    ! Initialize TempMembers
    TempMembers = p%Elems(1:p%NMembers,:)
    
+   ! The conversion from circular PropSets to non-circular XPropSets should be done here!
+   
    ! Initialize Temp property set, first user defined sets
    TempProps = 0
    TempProps(1:Init%NPropSets, :) = Init%PropSets   
@@ -560,6 +562,77 @@ SUBROUTINE GetNewXProp(k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, TempProps)
    TempProps(k, 10) = Jzz
 
 END SUBROUTINE GetNewXProp
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
+SUBROUTINE ConvertPropSets(Init)
+! This subroutine converts the circular properties to general cross-section properties and adds them to the XPropSet
+   TYPE(SD_InitType),            INTENT(INOUT)  ::Init
+
+   INTEGER                  :: I, J
+
+   REAL(ReKi)               :: Da, t, E, G, rho ! properties of a circular section
+   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, A, kappa, Ax, Ay, nu, ratioSq ! conversion entities
+   LOGICAL                  :: shear                         
+
+   
+   J = Init%NXPropSets + 1 ! start index for circular properties within XPropSet
+   ! loop over all circular property sets
+   DO I = 1, Init%NPropSets
+             
+      ! get the current circular properties
+      E   = Init%PropsSets(I, 2)
+      G   = Init%PropsSets(I, 3)
+      rho = Init%PropsSets(I, 4)
+      Da  = Init%PropsSets(I, 5)
+      t  = Init%PropsSets(I, 6)
+               
+      ! conversion from circular to general x properties
+      Ra = D / 2.0_ReKi
+      Ri = Ra - t
+      Di = Ri * 2
+            
+      A = Pi_D * (Ra*Ra - Ri*Ri)
+      Ixx = 0.25 * Pi_D * (Ra**4-Ri**4)
+      Iyy = Ixx
+      Jzz = 2.0 * Ixx
+            
+      ! calculate kappa, which is for a circular cross-section in each direction the same
+      IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
+          Shear = .false.
+          kappa = 0
+                     
+      ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
+          Shear = .true.
+          ! kappa = 0.53            
+               
+          ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
+          nu = E / (2.0_ReKi*G) - 1.0_ReKi
+          ratioSq = ( Di / Da )**2
+          kappa =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
+                  / ( ( 1.0 + ratioSq )**2 * ( 7.0 + 14.0*nu + 8.0*nu**2 ) + 4.0 * ratioSq * ( 5.0 + 10.0*nu + 4.0 *nu**2 ) )
+      ENDIF
+      
+      Ax = kappa * A
+      Ay = kappa * A
+                  
+      ! add circular properties to XPropSet
+      Init%XPropSets(J,1) = Init%PropSets(I,1)    ! add circular cross section ID to XPropSet
+      Init%XPropSets(J,2) = E                     ! add E-modulus to XPropSet
+      Init%XPropSets(J,3) = G                     ! add shear modulus to XPropSet
+      Init%XPropSets(J,4) = rho                   ! add density to XPropSet
+      Init%XPropSets(J,5) = A                     ! add area to XPropSet
+      Init%XPropSets(J,6) = Ax                    ! add shear area x to XPropSet
+      Init%XPropSets(J,7) = Ay                    ! add shear area y to XPropSet
+      Init%XPropSets(J,8) = Ixx                   ! add second area moment of inertia around x axis to XPropSet
+      Init%XPropSets(J,9) = Iyy                   ! add second area moment of inertia around y axis to XPropSet
+      Init%XPropSets(J,10) = Jzz                   ! add torsional moment of inertia to XPropSet
+                  
+      J = J + 1 ! add one to circular cross section index within XPropSet
+   ENDDO
+   
+   Init%NXPropSets = Init%NXPropSets + Init%NPropSets ! update the number of general circular cross sections to its new value
+   
+END SUBROUTINE ConvertPropSets
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
