@@ -122,7 +122,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    REAL(ReKi), ALLOCATABLE       :: TempProps(:, :)
    INTEGER, ALLOCATABLE          :: TempMembers(:, :) ,TempReacts(:,:)         
    INTEGER                       :: knode, kelem, kprop, nprop
-   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, dd, dt, d1, d2, t1, t2
+   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, Ax1, Ax2, dAx, Ay1, Ay2, dAy, Ixx1, Ixx2, dIxx, Iyy1, Iyy2, dIyy, Jzz1, Jzz2, dJzz
    LOGICAL                       :: found, CreateNewProp
    INTEGER(IntKi)                :: ErrStat2
    CHARACTER(1024)               :: ErrMsg2
@@ -165,7 +165,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    CALL AllocAry(Init%IntFc,      6*Init%NInterf,2,          'Init%IntFc',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
    CALL AllocAry(TempMembers,     p%NMembers,    MembersCol, 'TempMembers',     ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
-   CALL AllocAry(TempProps,       MaxNXProp,      PropSetsCol,'TempProps',       ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
+   CALL AllocAry(TempProps,       MaxNXProp,      XPropSetsCol,'TempProps',       ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
    CALL AllocAry(TempReacts,      p%NReact,      ReactCol,   'TempReacts',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
 
@@ -262,11 +262,12 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    ! Initialize TempMembers
    TempMembers = p%Elems(1:p%NMembers,:)
    
-   ! The conversion from circular PropSets to non-circular XPropSets should be done here!
+   ! Conversion from circular PropSets to arbitrary XPropSets
+   CALL ConvertPropSets(Init)
    
    ! Initialize Temp property set, first user defined sets
    TempProps = 0
-   TempProps(1:Init%NPropSets, :) = Init%PropSets   
+   TempProps(1:Init%NXPropSets, :) = Init%XPropSets   
    
    
    ! Initialize boundary constraint vector
@@ -345,7 +346,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
 
 knode = Init%NJoints
 kelem = 0
-kprop = Init%NPropSets
+kprop = Init%NXPropSets
 Init%MemberNodes = 0
 
 
@@ -390,18 +391,34 @@ IF (Init%NDiv .GT. 1) THEN
       dy = ( y2 - y1 )/Init%NDiv
       dz = ( z2 - z1 )/Init%NDiv
       
-      d1 = TempProps(Prop1, 5)
-      t1 = TempProps(Prop1, 6)
+      A1 = TempProps(Prop1, 5)
+      Ax1 = TempProps(Prop1, 6)
+      Ay1 = TempProps(Prop1, 7)
+      Ixx1 = TempProps(Prop1, 8)
+      Iyy1 = TempProps(Prop1, 9)
+      Jzz1 = TempProps(Prop1, 10)
 
-      d2 = TempProps(Prop2, 5)
-      t2 = TempProps(Prop2, 6)
+      A2 = TempProps(Prop2, 5)
+      Ax2 = TempProps(Prop2, 6)
+      Ay2 = TempProps(Prop2, 7)
+      Ixx2 = TempProps(Prop2, 8)
+      Iyy2 = TempProps(Prop2, 9)
+      Jzz2 = TempProps(Prop2, 10)
       
-      dd = ( d2 - d1 )/Init%NDiv
-      dt = ( t2 - t1 )/Init%NDiv
+      dA = ( A2 - A1 )/Init%NDiv
+      dAx = ( Ax2 - Ax1 )/Init%NDiv
+      dAy = ( Ay2 - Ay1 )/Init%NDiv
+      dIxx = ( Ixx2 - Ixx1 )/Init%NDiv
+      dIyy = ( Iyy2 - Iyy1 )/Init%NDiv
+      dJzz = ( Jzz2 - Jzz1 )/Init%NDiv
       
-         ! If both dd and dt are 0, no interpolation is needed, and we can use the same property set for new nodes/elements. otherwise we'll have to create new properties for each new node
-      CreateNewProp = .NOT. ( EqualRealNos( dd , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dt , 0.0_ReKi ) )  
+         ! If dA and dAx and dAy and dIxx and dIyy and dJzz are 0, no interpolation is needed, and we can use the same property set for new nodes/elements. otherwise we'll have to create new properties for each new node
+      CreateNewProp = .NOT. ( EqualRealNos( dA , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dAx , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dAy , 0.0_ReKi ) .AND. & 
+                              EqualRealNos( dIxx , 0.0_ReKi ) .AND. & 
+                              EqualRealNos( dIyy , 0.0_ReKi ) .AND. & 
+                              EqualRealNos( dJzz , 0.0_ReKi ) )  
       
       ! node connect to Node1
       knode = knode + 1
@@ -411,11 +428,11 @@ IF (Init%NDiv .GT. 1) THEN
       
       IF ( CreateNewProp ) THEN   
            ! create a new property set 
-           ! k, E, G, rho, d, t, Init
+           ! k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, Init
            
            kprop = kprop + 1
-           CALL GetNewProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), d1+dd, t1+dt, TempProps)           
+           CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
+                           TempProps(Prop1, 4), A1+dA, Ax1+dAx, Ay1+dAy, Ixx1+dIxx, Iyy1+dIyy, Jzz1+dJzz, TempProps)           
            kelem = kelem + 1
            CALL GetNewElem(kelem, Node1, knode, Prop1, kprop, p)  
            nprop = kprop              
@@ -435,12 +452,12 @@ IF (Init%NDiv .GT. 1) THEN
          
          IF ( CreateNewProp ) THEN   
               ! create a new property set 
-              ! k, E, G, rho, d, t, Init
+              ! k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, Init
               
               kprop = kprop + 1
-              CALL GetNewProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                              Init%PropSets(Prop1, 4), d1 + J*dd, t1 + J*dt, &
-                              TempProps)           
+           CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
+                           TempProps(Prop1, 4), A1 + J*dA, Ax1 + J*dAx, Ay1 + J*dAy,&
+                           Ixx1 + J*dIxx, Iyy1 + J*dIyy, Jzz1 + J*dJzz, TempProps)          
               kelem = kelem + 1
               CALL GetNewElem(kelem, knode-1, knode, nprop, kprop, p)
               nprop = kprop                
@@ -464,15 +481,15 @@ ELSE ! NDiv = 1
 ENDIF ! if NDiv is greater than 1
 
 ! set the props in Init
-Init%NProp = kprop
-CALL AllocAry(Init%Props, Init%NProp, PropSetsCol,  'Init%Props', ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
+Init%NXProp = kprop
+CALL AllocAry(Init%Props, Init%NXProp, XPropSetsCol,  'Init%Props', ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    IF (ErrStat >= AbortErrLev ) THEN
       CALL SetErrStat(ErrStat2,ErrMsg2, ErrStat,ErrMsg,'SD_Discrt');
       CALL CleanUp_Discrt()
    RETURN
 ENDIF
-!Init%Props(1:kprop, 1:Init%PropSetsCol) = TempProps
-Init%Props = TempProps(1:Init%NProp, :)  !!RRD fixed it on 1/23/14 to account for NDIV=1
+
+Init%Props = TempProps(1:Init%NXProp, :)
 
 CALL CleanUp_Discrt()
 
