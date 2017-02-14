@@ -4179,10 +4179,11 @@ FUNCTION MemberXMass(I, Init, L)
     REAL(ReKi)              :: rho, A1, A2           ! temporary coefficients
     
     DO K = 1, Init%NXPropSets
-       IF ( Init%Members(I, 4) == Init%XPropSets(K, 1) ) THEN
+       IF ( EqualRealNos(Init%Members(I, 4), Init%XPropSets(K, 1)) ) THEN
           Prop_I1 = K
        
-       ELSEIF ( Init%Members(I, 5) == Init%XPropSets(K, 1) ) THEN
+       ENDIF
+       IF ( EqualRealNos(Init%Members(I, 5), Init%XPropSets(K, 1)) ) THEN
           Prop_I2 = K   
 
        ENDIF           
