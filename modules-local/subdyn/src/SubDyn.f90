@@ -3908,9 +3908,14 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    WRITE(UnSum, '(I8,I10,I10,I10,I10)') ((p%Elems(i, j), j = 1, MembersCol), i = 1, Init%NElem)
    
    WRITE(UnSum, '()') 
-   WRITE(UnSum, '(A,I6)')  'Number of properties (NProps):',Init%NProp
+   WRITE(UnSum, '(A,I6)')  'Number of circular properties (NProps):',Init%NPropSets
    WRITE(UnSum, '(A8,5(A15))')  'Prop No.',     'YoungE',       'ShearG',       'MatDens',     'XsecD',      'XsecT'
-   WRITE(UnSum, '(I8, E15.6,E15.6,E15.6,E15.6,E15.6 ) ') (NINT(Init%Props(i, 1)), (Init%Props(i, j), j = 2, 6), i = 1, Init%NProp)
+   WRITE(UnSum, '(I8, E15.6,E15.6,E15.6,E15.6,E15.6 ) ') (NINT(Init%PropSets(i, 1)), (Init%PropSets(i, j), j = 2, 6), i = 1, Init%NPropSets)
+   
+   WRITE(UnSum, '()') 
+   WRITE(UnSum, '(A,I6)')  'Number of arbitrary cross-section properties. Contains likewise converted circular cross-section properties. (NXProps):',Init%NXPropSets
+   WRITE(UnSum, '(A8,10(A15))')  'Prop No.',     'YoungE',       'ShearG',       'MatDens',     'XsecA',      'XsecAx',      'XsecAy',      'XsecJxx',      'XsecJyy',      'XsecJzz'
+   WRITE(UnSum, '(I8, E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6  ) ') (NINT(Init%Props(i, 1)), (Init%Props(i, j), j = 2, 10), i = 1, Init%NProp)
 
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'No. of Reaction DOFs:',p%NReact*6
