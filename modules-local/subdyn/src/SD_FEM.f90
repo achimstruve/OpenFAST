@@ -767,7 +767,16 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       P1 = p%Elems(I, NNE + 2)
       P2 = p%Elems(I, NNE + 3)
       
-      MID = p%Elems(I, NNE + 4)
+      ! search for current MemberID
+      DO J = 1, p%NMembers
+         DO K = 1, Init%NDiv
+            IF ( Init%MemberElements(J, K) == I ) THEN
+               MID = Init%MemberElements(J, 1)
+            ENDIF
+         
+         ENDDO
+      
+      ENDDO
       
       
       E   = Init%Props(P1, 2)
@@ -979,16 +988,18 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
    INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
    CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
    
-   INTEGER(IntKi)       :: I                       ! Counter index
-   REAL(ReKi)           :: S1, S2, S3, E1, E2, E3  ! (x,y,z) start and end coordinates of this element
-   REAL(ReKi)           :: PS(3), PE(3), SES(3)    ! Start point PS, end point PE and its subtraction as vectors. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: PA(3)                   ! 3rd orientation point PA of this member. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: PAp(3), SApS(3)         ! Projected orientation point PAp and the with PS substracted resulting vector for this member. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: ke_hat(3)               ! Unit vector along z_e axis of the current member. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: lambda                  ! Scalar for point projection
-   REAL(ReKi)           :: La                      ! Length from node start point PS to projected point PAp
-   REAL(ReKi)           :: O_type                  ! Orientation type
-   INTEGER(IntKi)       :: MI                      ! Member index
+   INTEGER(IntKi)       :: I                             ! Counter index
+   REAL(ReKi)           :: S1, S2, S3, E1, E2, E3        ! (x,y,z) start and end coordinates of this element
+   REAL(ReKi)           :: PS(3), PE(3), SES(3)          ! Start point PS, end point PE and its subtraction as vectors. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: PA(3)                         ! 3rd orientation point PA of this member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: PAp(3), PApxy(3)              ! Projected orientation point PAp and its origin point PAxy on the global SS-XY-plane for this member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: ke_hat(3)                     ! Unit vector along z_e axis of the current member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: lambda                        ! Scalar for point projection
+   REAL(ReKi)           :: Lexy, La                      ! Length from PS to PE (projected on global SS-XY-plane) and from node start point PS to projected point PAp
+   REAL(ReKi)           :: Dx, Dy                        ! Differences of X- and Y-coordinates of start and end node PS and PE
+   REAL(ReKi)           :: I_hat(3)                      ! Unit vector for global SS-X-axis
+   REAL(ReKi)           :: O_type                        ! Orientation type
+   INTEGER(IntKi)       :: MI                            ! Member index
         
    ErrMsg  = ""
    ErrStat = ErrID_None
@@ -1083,10 +1094,42 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       
       ENDIF
       
-      !! calculate orientation angle psi according to PAp
-      SApS = PAp - PS
-      La = SQRT( SApS(1)**2 + SApS(2)**2 + SApS(3)**2 )
-      psi = ASIN( ( PAp(3) - PS(3) ) / La )
+      !! calculate orientation angle psi according to PAp 
+      
+      La = SQRT( (PAp(1)-PS(1))**2 + (PAp(2)-PS(2))**2 + (PAp(3)-PS(3))**2 )
+      
+      ! case member z_e axis is parallel to global SS-Z-axis
+      IF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) ) THEN
+         I_hat = 0
+         I_hat(1) = 1
+         psi = ACOS( DOT_PRODUCT( PAp, I_hat ) / (La) )
+         IF (PAp(2) < 0) THEN ! modify angle psi, if it is greater than Pi
+             psi = 2.0_ReKi * Pi_D - psi
+         ENDIF
+      
+      ! case member z_e axis is not parallel to global SS-Z-axis
+      ELSE
+         Dx = PE(1) - PS(1)
+         Dy = PE(2) - PS(2)
+         Lexy = SQRT( Dx**2 + Dy**2 )
+         
+         IF ( EqualRealNos( ( (PAp(1)-PS(1))**2 + (PAp(2)-PS(2))**2 + (PAp(3)-PS(3))**2 ), 0.0_ReKi) ) THEN
+            ErrMsg = ' Point A should not lie on point S!'
+            ErrStat = ErrID_Fatal
+            RETURN
+         ENDIF
+         
+         PApxy(1) = PS(1) + La * ( ( PS(2) - PE(2) ) / Lexy ) ! La * COS(Phi)
+         PApxy(2) = PS(2) + La * ( ( PE(1) - PS(1) ) / Lexy ) ! La * SIN(Phi)
+         PApxy(3) = PS(3)
+         
+         psi = ACOS( DOT_PRODUCT( PAp, PApxy ) / (La**2) )
+         
+         IF (PAp(3) < PApxy(3)) THEN ! modify angle psi, if it is greater than Pi
+             psi = 2.0_ReKi * Pi_D - psi
+         ENDIF
+         
+      ENDIF
       
    ELSE
       ErrMsg = ' Member '//TRIM(Num2LStr(MID))//' has the undifined Orientation Type '//TRIM(Num2LStr(O_type))//'. Choose Orientation Type 1 or 2 instead.'

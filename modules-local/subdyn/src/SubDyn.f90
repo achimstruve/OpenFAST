@@ -1554,8 +1554,8 @@ ENDIF
 DO I = 1, p%NMembers
 
 !   CALL ReadIAry( UnIn, SDInputFile, Init%Members(I,:), MembersCol, 'Members', 'Member number and connectivity ', ErrStat,ErrMsg, UnEc )
-   CALL ReadAry( UnIn, SDInputFile, Dummy_IntAry, MembersCol, 'Members', 'Member number and connectivity ', ErrStat,ErrMsg, UnEc )
-   Init%Members(I,:) = Dummy_IntAry(1:MembersCol)
+   CALL ReadAry( UnIn, SDInputFile, Dummy_ReAry, MembersCol, 'Members', 'Member number and connectivity ', ErrStat,ErrMsg, UnEc )
+   Init%Members(I,:) = Dummy_ReAry(1:MembersCol)
 
    IF ( ErrStat /= ErrID_None ) THEN
       ErrStat = ErrID_Fatal
