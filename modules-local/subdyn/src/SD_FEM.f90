@@ -1022,23 +1022,66 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       SES = PE - PS
       ke_hat = SES / SQRT( SES(1)**2 + SES(2)**2 + SES(3)**2 )
       
-      ! check if point PA lies on the z_e axis
-      IF ( ( PA(1) - PS(1) ) / ke_hat(1) ==  ( PA(2) - PS(2) ) / ke_hat(2) .AND. &
-           ( PA(1) - PS(1) ) / ke_hat(1) ==  ( PA(3) - PS(3) ) / ke_hat(3) ) THEN
-         
+      !! check if point PA lies on the z_e axis. The cases make sure that we get no devision by 0.
+      ! case member z_e axis is parallel to global SS-X-axis
+      IF ( EqualRealNos(ke_hat(3), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(( PA(3) - PS(3) ), 0.0_ReKi) .AND. EqualRealNos(( PA(2) - PS(2) ), 0.0_ReKi)) THEN
          ErrMsg = ' Orientation point A is not allowed to lie on member axis z_e!'
          ErrStat = ErrID_Fatal
          RETURN
-           
+         
+      ! case member z_e axis is parallel to global SS-Y-axis
+      ELSEIF ( EqualRealNos(ke_hat(3), 0.0_ReKi) .AND. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(( PA(3) - PS(3) ), 0.0_ReKi) .AND. EqualRealNos(( PA(1) - PS(1) ), 0.0_ReKi)) THEN
+         ErrMsg = ' Orientation point A is not allowed to lie on member axis z_e!'
+         ErrStat = ErrID_Fatal
+         RETURN
+
+      ! case member z_e axis is parallel to global SS-Z-axis
+      ELSEIF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(( PA(1) - PS(1) ), 0.0_ReKi) .AND. EqualRealNos(( PA(2) - PS(2) ), 0.0_ReKi)) THEN
+         ErrMsg = ' Orientation point A is not allowed to lie on member axis z_e!'
+         ErrStat = ErrID_Fatal
+         RETURN
+      
+      ! case member z_e axis is not parallel to global SS-X-Y-Z axes (implies that neither ke_hat(1), ke_hat(2) and ke_hat(3) is 0)
+      ELSEIF ( .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
+         IF ( ( PA(1) - PS(1) ) / ke_hat(1) ==  ( PA(2) - PS(2) ) / ke_hat(2) .AND. &
+              ( PA(1) - PS(1) ) / ke_hat(1) ==  ( PA(3) - PS(3) ) / ke_hat(3) ) THEN
+            ErrMsg = ' Orientation point A is not allowed to lie on member axis z_e!'
+            ErrStat = ErrID_Fatal
+            RETURN
+            
+         ENDIF     
+
       ENDIF
       
-      ! calculate lambda
-      lambda = ( ke_hat(3) +  ke_hat(1)**2 / ke_hat(3) + ke_hat(2)**2 / ke_hat(3)) &
-               / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
-               - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) )
+      !! calculate projected point PAp for different cases
+      ! case member z_e axis is parallel to global SS-X-axis
+      IF ( EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
+          PAp(2) = PA(2)
+          PAp(3) = PA(3)
+          PAp(1) = PS(1)
+          
+      ! case member z_e axis is parallel to global SS-Y-axis
+      ELSEIF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
+          PAp(1) = PA(1)
+          PAp(3) = PA(3)
+          PAp(2) = PS(2)
+
+      ! case member z_e axis is parallel to global SS-Z-axis
+      ELSEIF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) ) THEN
+          PAp(1) = PA(1)
+          PAp(2) = PA(2)
+          PAp(3) = PS(3)
+
+      ! case member z_e axis is not parallel to global SS-X-Y-Z axes (implies that neither ke_hat(1), ke_hat(2) and ke_hat(3) is 0)
+      ELSEIF ( .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
+         ! calculate lambda
+         lambda = ( ke_hat(3) +  ke_hat(1)**2 / ke_hat(3) + ke_hat(2)**2 / ke_hat(3)) &
+                 / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
+                 - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) )
+         ! calculate projected point PAp
+         PAp = PA - 1 / lambda * ke_hat
       
-      ! calculate projected point PAp
-      PAp = PA - 1 / lambda * ke_hat
+      ENDIF
       
       !! calculate orientation angle psi according to PAp
       SApS = PAp - PS
