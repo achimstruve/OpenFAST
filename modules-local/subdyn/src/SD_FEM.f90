@@ -932,17 +932,34 @@ SUBROUTINE GetDirCos(X1, Y1, Z1, X2, Y2, Z2, DirCos, Le, psi, ErrStat, ErrMsg)
       RETURN
    ENDIF
    
-   DirCos(1, 1) = -Dy / Lexy * COS(psi) - ( ( Dx * Dz ) / ( Lexy * Le ) * SIN(psi) )
-   DirCos(1, 2) = -( -Dy / Lexy * SIN(psi) ) - ( ( Dx * Dz ) / ( Lexy * Le ) * COS(psi) )
-   DirCos(1, 3) =  Dx/Le
+   IF ( EqualRealNos(Lexy, 0.0_ReKi) ) THEN
+      DirCos=0.0_ReKi    ! whole matrix set to 0
+      IF ( Dz < 0) THEN  !x is kept along global x
+         DirCos(1, 1) =  COS(psi)
+         DirCos(1, 2) =  -SIN(psi)
+         DirCos(2, 1) =  -SIN(psi)
+         DirCos(2, 2) =  -COS(psi)
+         DirCos(3, 3) = -1.0_ReKi
+      ELSE
+         DirCos(1, 1) =  COS(psi)
+         DirCos(1, 2) =  -SIN(psi)
+         DirCos(2, 1) =  SIN(psi)
+         DirCos(2, 2) =  COS(psi)
+         DirCos(3, 3) =  1.0_ReKi
+      ENDIF 
+   ELSE
+      DirCos(1, 1) = -Dy / Lexy * COS(psi) - ( ( Dx * Dz ) / ( Lexy * Le ) * SIN(psi) )
+      DirCos(1, 2) = -( -Dy / Lexy * SIN(psi) ) - ( ( Dx * Dz ) / ( Lexy * Le ) * COS(psi) )
+      DirCos(1, 3) =  Dx/Le
       
-   DirCos(2, 1) =  Dx / Lexy * COS(psi) + ( -Dy * Dz ) / ( Lexy * Le ) * SIN(psi)
-   DirCos(2, 2) = -( Dx / Lexy * SIN(psi) ) + ( -Dy * Dz ) / ( Lexy * Le ) * COS(psi)
-   DirCos(2, 3) =  Dy / Le
+      DirCos(2, 1) =  Dx / Lexy * COS(psi) + ( -Dy * Dz ) / ( Lexy * Le ) * SIN(psi)
+      DirCos(2, 2) = -( Dx / Lexy * SIN(psi) ) + ( -Dy * Dz ) / ( Lexy * Le ) * COS(psi)
+      DirCos(2, 3) =  Dy / Le
      
-   DirCos(3, 1) = Lexy / Le * SIN(psi)
-   DirCos(3, 2) = Lexy / Le * COS(psi)
-   DirCos(3, 3) = Dz / Le
+      DirCos(3, 1) = Lexy / Le * SIN(psi)
+      DirCos(3, 2) = Lexy / Le * COS(psi)
+      DirCos(3, 3) = Dz / Le
+   ENDIF
 
 END SUBROUTINE GetDirCos
 !------------------------------------------------------------------------------------------------------
