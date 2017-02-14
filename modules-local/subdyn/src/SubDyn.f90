@@ -3941,7 +3941,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
        !Calculate member mass here; this should really be done somewhere else, yet it is not used anywhere else
        mlength=MemberLength(Init%Members(i,1),Init,ErrStat,ErrMsg)
        IF (ErrStat .EQ. ErrID_None) THEN
-        WRITE(UnSum, '(I9,I10,I10, E15.6, A3,'//Num2LStr(Init%NDiv + 1 )//'(I6))')    Init%Members(i,1:3),  &
+        WRITE(UnSum, '(I9,I10,I10, E15.6, A3,'//Num2LStr(Init%NDiv + 1 )//'(I6))')    INT(Init%Members(i,1:3)),  &
                MemberXMass(i, Init, mlength), ' ',(Init%MemberNodes(i, j), j = 1, Init%NDiv+1)
        ELSE 
            RETURN
@@ -3961,7 +3961,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
          ENDIF
       ENDDO
       DirCos=TRANSPOSE(DirCos) !This is now global to local
-      WRITE(UnSum, '(I9,9(E15.6))') Init%Members(i,1), ((DirCos(k,j),j=1,3),k=1,3)
+      WRITE(UnSum, '(I9,9(E15.6))') INT(Init%Members(i,1)), ((DirCos(k,j),j=1,3),k=1,3)
    ENDDO
 
    !-------------------------------------------------------------------------------------------------------------
