@@ -121,7 +121,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    INTEGER                       :: MaxNXProp
    REAL(ReKi), ALLOCATABLE       :: TempProps(:, :)
    INTEGER, ALLOCATABLE          :: TempMembers(:, :) ,TempReacts(:,:)         
-   INTEGER                       :: knode, kelem, kprop, nprop
+   INTEGER                       :: knode, kelem, kprop, nprop, MID
    REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, Ax1, Ax2, dAx, Ay1, Ay2, dAy, Ixx1, Ixx2, dIxx, Iyy1, Iyy2, dIyy, Jzz1, Jzz2, dJzz
    LOGICAL                       :: found, CreateNewProp
    INTEGER(IntKi)                :: ErrStat2
@@ -373,7 +373,8 @@ IF (Init%NDiv .GT. 1) THEN
       Init%MemberNodes(I,           1) = Node1
       Init%MemberNodes(I, Init%NDiv+1) = Node2
       
-      Init%MemberElements(I, 1) = p%Elems(I,     6) ! write current MemberID to Init%MemberElements
+      MID = Init%Members(I,1)
+      Init%MemberElements(I, 1) = MID ! write current MemberID to Init%MemberElements
       
       IF  ( ( .not. EqualRealNos(TempProps(Prop1, 2),TempProps(Prop2, 2) ) ) &
        .OR. ( .not. EqualRealNos(TempProps(Prop1, 3),TempProps(Prop2, 3) ) ) &
@@ -439,11 +440,11 @@ IF (Init%NDiv .GT. 1) THEN
            CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
                            TempProps(Prop1, 4), A1+dA, Ax1+dAx, Ay1+dAy, Ixx1+dIxx, Iyy1+dIyy, Jzz1+dJzz, TempProps)           
            kelem = kelem + 1
-           CALL GetNewElem(kelem, Node1, knode, Prop1, kprop, p)  
+           CALL GetNewElem(kelem, Node1, knode, Prop1, kprop, MID, p)  
            nprop = kprop              
       ELSE
            kelem = kelem + 1
-           CALL GetNewElem(kelem, Node1, knode, Prop1, Prop1, p)                
+           CALL GetNewElem(kelem, Node1, knode, Prop1, Prop1, MID, p)                
            nprop = Prop1 
       ENDIF
       
@@ -466,11 +467,11 @@ IF (Init%NDiv .GT. 1) THEN
                            TempProps(Prop1, 4), A1 + J*dA, Ax1 + J*dAx, Ay1 + J*dAy,&
                            Ixx1 + J*dIxx, Iyy1 + J*dIyy, Jzz1 + J*dJzz, TempProps)          
               kelem = kelem + 1
-              CALL GetNewElem(kelem, knode-1, knode, nprop, kprop, p)
+              CALL GetNewElem(kelem, knode-1, knode, nprop, kprop, MID, p)
               nprop = kprop                
          ELSE
               kelem = kelem + 1
-              CALL GetNewElem(kelem, knode-1, knode, nprop, nprop, p)         
+              CALL GetNewElem(kelem, knode-1, knode, nprop, nprop, MID, p)         
                
          ENDIF
          
@@ -479,7 +480,7 @@ IF (Init%NDiv .GT. 1) THEN
       
       ! the element connect to Node2
       kelem = kelem + 1
-      CALL GetNewElem(kelem, knode, Node2, nprop, Prop2, p) 
+      CALL GetNewElem(kelem, knode, Node2, nprop, Prop2, MID, p) 
       Init%MemberElements(I, Init%NDiv + 1) = kelem ! write last element number to Init%MemberElements for this member
 
    ENDDO ! loop over all members
@@ -536,13 +537,14 @@ SUBROUTINE GetNewNode(k, x, y, z, Init)
 END SUBROUTINE GetNewNode
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
-SUBROUTINE GetNewElem(k, n1, n2, p1, p2, p)
+SUBROUTINE GetNewElem(k, n1, n2, p1, p2, MID, p)
 
    INTEGER,                INTENT(IN   )   :: k
    INTEGER,                INTENT(IN   )   :: n1
    INTEGER,                INTENT(IN   )   :: n2
    INTEGER,                INTENT(IN   )   :: p1
    INTEGER,                INTENT(IN   )   :: p2
+   INTEGER,                INTENT(IN   )   :: MID
    TYPE(SD_ParameterType), INTENT(INOUT)   :: p
   
    
@@ -551,6 +553,7 @@ SUBROUTINE GetNewElem(k, n1, n2, p1, p2, p)
    p%Elems(k, 3) = n2
    p%Elems(k, 4) = p1
    p%Elems(k, 5) = p2
+   p%Elems(k, 6) = MID
 
 END SUBROUTINE GetNewElem
 !------------------------------------------------------------------------------------------------------
