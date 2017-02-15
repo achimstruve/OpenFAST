@@ -3905,7 +3905,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'Number of elements (NElems):',Init%NElem
    WRITE(UnSum, '(A8,5(A10))')  'Elem No.',    'Node_I',     'Node_J',      'Prop_I',      'Prop_J',      'MemberID'
-   WRITE(UnSum, '(I8,I10,I10,I10,I10,I10)') ((p%Elems(i, j), j = 1, 6), i = 1, Init%NElem)
+   WRITE(UnSum, '(I8,I10,I10,I10,I10,I10)') ((p%Elems(i, j), j = 1, 3),(NINT(Init%Props(p%Elems(i, j),1)), j = 4, 5),(p%Elems(i, 6)), i = 1, Init%NElem)
    
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'Number of circular properties (NProps):',Init%NPropSets
