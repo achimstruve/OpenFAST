@@ -4180,7 +4180,7 @@ FUNCTION MemberXMass(I, Init, L)
 
     REAL(ReKi)              :: MemberXMass           ! calculated mass
     !LOCALS
-    INTEGER(IntKi)          :: Prop_I1, Prop_I2, K   ! property indizes and counter
+    INTEGER(IntKi)          :: Prop_I1, Prop_I2, K   ! property indexes and counter
     REAL(ReKi)              :: rho, A1, A2           ! temporary coefficients
     
     DO K = 1, Init%NXPropSets
