@@ -1672,8 +1672,9 @@ ENDIF
 
 DO I = 1, Init%NXPropSets
 
-   CALL ReadAry( UnIn, SDInputFile, Init%XPropSets(I,:), XPropSetsCol, 'XPropSets', 'XPropSets ID and values ', ErrStat, ErrMsg, UnEc  )
-
+   CALL ReadAry( UnIn, SDInputFile, Dummy_ReAry, XPropSetsCol, 'XPropSets', 'XPropSets ID and values ', ErrStat, ErrMsg, UnEc  )
+   Init%XPropSets(I,:) = Dummy_ReAry(1:XPropSetsCol)
+   
    IF ( ErrStat /= ErrID_None ) THEN
       ErrStat = ErrID_Fatal
       CALL CleanUp()
@@ -1690,8 +1691,7 @@ DO I = 1, Init%NXPropSets
       ENDIF
    ENDDO
       
-ENDDO   
-
+ENDDO
 
 !------------------------ JOINT ADDITIONAL CONCENTRATED MASSES--------------------------
 
@@ -4198,7 +4198,7 @@ FUNCTION MemberXMass(I, Init, L)
     A1 = Init%XPropSets(Prop_I1, 5)
     A2 = Init%XPropSets(Prop_I2, 5)
     
-    MemberXMass = ( A1 + A2 ) / 2 * L * rho !Integral of rho*A dz
+    MemberXMass = ( A1 + A2 ) / 2.0_ReKi * L * rho !Integral of rho*A dz
       
 END FUNCTION MemberXMass
 

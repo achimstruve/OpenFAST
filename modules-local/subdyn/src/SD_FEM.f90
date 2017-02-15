@@ -234,7 +234,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
          found = .false.      
          DO WHILE ( .NOT. found .AND. J <= Init%NPropSets )
             IF ( Prop == NINT(Init%PropSets(J, 1)) ) THEN
-               p%Elems(I, n) = J                ! index of the property set n-3 (i.e., property sets 1 and 2)  ! note that previously, this used Prop instead of J, which assumed the list of MemberIDs was sequential, starting at 1.
+               p%Elems(I, n) = Init%NXPropSets + J  ! index of the property set n-3 (i.e., property sets 1 and 2)  ! note that previously, this used Prop instead of J, which assumed the list of MemberIDs was sequential, starting at 1.
                found = .TRUE.
             END IF
             J = J + 1
@@ -244,7 +244,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
          J = 1
          DO WHILE ( .NOT. found .AND. J <= Init%NXPropSets )
             IF ( Prop == NINT(Init%XPropSets(J, 1)) ) THEN
-               p%Elems(I, n) = J                ! index of the property set n-3 (i.e., property sets 1 and 2)
+               p%Elems(I, n) = J                    ! index of the property set n-3 (i.e., property sets 1 and 2)
                found = .TRUE.
             END IF
             J = J + 1
@@ -261,16 +261,15 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    
    END DO ! loop through members
    
-   ! Initialize TempMembers
-   TempMembers = p%Elems(1:p%NMembers,:)
-   
    ! Conversion from circular PropSets to arbitrary XPropSets
    CALL ConvertPropSets(Init)
+   
+   ! Initialize TempMembers
+   TempMembers = p%Elems(1:p%NMembers,:)
    
    ! Initialize Temp property set, first user defined sets
    TempProps = 0
    TempProps(1:Init%NXPropSets, :) = Init%XPropSets   
-   
    
    ! Initialize boundary constraint vector
    ! Change the node number
@@ -655,10 +654,10 @@ SUBROUTINE ConvertPropSets(Init)
       Init%XPropSets(J,8) = Ixx                   ! add second area moment of inertia around x axis to XPropSet
       Init%XPropSets(J,9) = Iyy                   ! add second area moment of inertia around y axis to XPropSet
       Init%XPropSets(J,10) = Jzz                   ! add torsional moment of inertia to XPropSet
-                  
+      
       J = J + 1 ! add one to circular cross section index within XPropSet
    ENDDO
-   
+
    Init%NXPropSets = Init%NXPropSets + Init%NPropSets ! update the number of general circular cross sections to its new value
    
 END SUBROUTINE ConvertPropSets
