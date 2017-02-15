@@ -3861,7 +3861,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    
    INTEGER(IntKi)                         :: SDtoMeshIndx(Init%NNode)
    REAL(ReKi)                      :: MRB(6,6)    !REDUCED SYSTEM Kmatrix, equivalent mass matrix
-   REAL(ReKi)                      :: XYZ1(3),XYZ2(3), DirCos(3,3), mlength !temporary arrays, member i-th direction cosine matrix (global to local) and member length
+   REAL(ReKi)                      :: XYZ1(3),XYZ2(3), DirCos(3,3), mlength, psi !temporary arrays, member i-th direction cosine matrix (global to local), member length and orientation angle psi
    CHARACTER(2),  DIMENSION(6), PARAMETER     :: MatHds= (/'X ', 'Y ', 'Z ', 'XX', 'YY', 'ZZ'/)  !Headers for the columns and rows of 6x6 matrices
       
    
@@ -3951,17 +3951,18 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    ! write Cosine matrix for all members to a txt file
    !-------------------------------------------------------------------------------------------------------------
    WRITE(UnSum, '(A)') SectionDivide
-   WRITE(UnSum, '(A, I6)') 'Direction Cosine Matrices for all Members: GLOBAL-2-LOCAL. No. of 3x3 matrices=', p%NMembers 
-   WRITE(UnSum, '(A9,9(A15))')  'Member ID', 'DC(1,1)', 'DC(1,2)', 'DC(1,3)', 'DC(2,1)','DC(2,2)','DC(2,3)','DC(3,1)','DC(3,2)','DC(3,3)'
+   WRITE(UnSum, '(A, I6)') 'Orientation Angle psi and Direction Cosine Matrices for all Members: GLOBAL-2-LOCAL. No. of 3x3 matrices=', p%NMembers 
+   WRITE(UnSum, '(A9,10(A15))')  'Member ID', 'psi[deg]', 'DC(1,1)', 'DC(1,2)', 'DC(1,3)', 'DC(2,1)','DC(2,2)','DC(2,3)','DC(3,1)','DC(3,2)','DC(3,3)'
    DO i=1,p%NMembers
       DO j=1, p%NMembers
          IF ( Init%MemberElements(j, 1) == Init%Members(i, 1) ) THEN
             DirCos = p%ElemProps(Init%MemberElements(j, 2))%DirCos
+            psi = p%ElemProps(Init%MemberElements(j, 2))%psi
             EXIT
          ENDIF
       ENDDO
       DirCos=TRANSPOSE(DirCos) !This is now global to local
-      WRITE(UnSum, '(I9,9(E15.6))') INT(Init%Members(i,1)), ((DirCos(k,j),j=1,3),k=1,3)
+      WRITE(UnSum, '(I9,E15.4,9(E15.6))') INT(Init%Members(i,1)),180_ReKi / Pi_D * psi, ((DirCos(k,j),j=1,3),k=1,3)
    ENDDO
 
    !-------------------------------------------------------------------------------------------------------------

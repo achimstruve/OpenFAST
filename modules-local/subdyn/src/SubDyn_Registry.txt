@@ -67,6 +67,7 @@ typedef	^	^	ReKi	Ay	-	-	-	"Shear area y"
 typedef	^	^	ReKi	YoungE	-	-	-	"Young's modulus"
 typedef	^	^	ReKi	ShearG	-	-	-	"Shear modulus"
 typedef	^	^	ReKi	Rho	-	-	-	"Density"
+typedef	^	^	ReKi	psi	-	-	-	"Orientation angle psi in rad"
 typedef	^	^	ReKi	DirCos	{3}{3}	-	-	"Element direction cosine matrix"
 # ============================== Define initialization data (not from glue code) here: ============================================================================================================================================
 #--------------------------arrays and variables from the input file ---------------------------------------------------------------------------------------------------------------------------------

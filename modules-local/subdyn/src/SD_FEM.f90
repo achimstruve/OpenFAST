@@ -838,6 +838,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       p%ElemProps(i)%YoungE = E
       p%ElemProps(i)%ShearG = G
       p%ElemProps(i)%Rho = rho
+      p%ElemProps(i)%psi = psi
       p%ElemProps(i)%DirCos = DirCos
          
          
