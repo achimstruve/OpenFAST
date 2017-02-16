@@ -1034,7 +1034,7 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       
       ! calculate unit vector along z_e axis
       SES = PE - PS
-      ke_hat = SES / SQRT( SES(1)**2 + SES(2)**2 + SES(3)**2 )
+      ke_hat = SES / SQRT( SES(1)**2.0_ReKi + SES(2)**2.0_ReKi + SES(3)**2.0_ReKi )
       
       !! check if point PA lies on the z_e axis. The cases make sure that we get no devision by 0.
       ! case member z_e axis is parallel to global SS-X-axis
@@ -1089,7 +1089,7 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       ! case member z_e axis is not parallel to global SS-X-Y-Z axes (implies that neither ke_hat(1), ke_hat(2) and ke_hat(3) is 0)
       ELSEIF ( .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
          ! calculate lambda
-         lambda = ( ke_hat(3) +  ke_hat(1)**2 / ke_hat(3) + ke_hat(2)**2 / ke_hat(3)) &
+         lambda = ( ke_hat(3) +  ke_hat(1)**2.0_ReKi / ke_hat(3) + ke_hat(2)**2.0_ReKi / ke_hat(3)) &
                  / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
                  - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) )
          ! calculate projected point PAp
@@ -1099,14 +1099,14 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       
       !! calculate orientation angle psi according to PAp 
       
-      La = SQRT( (PAp(1)-PS(1))**2 + (PAp(2)-PS(2))**2 + (PAp(3)-PS(3))**2 )
+      La = SQRT( (PAp(1)-PS(1))**2.0_ReKi + (PAp(2)-PS(2))**2.0_ReKi + (PAp(3)-PS(3))**2.0_ReKi )
       
       ! case member z_e axis is parallel to global SS-Z-axis
       IF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) ) THEN
-         I_hat = 0
-         I_hat(1) = 1
+         I_hat = 0.0_ReKi
+         I_hat(1) = 1.0_ReKi
          psi = ACOS( DOT_PRODUCT( PAp, I_hat ) / (La) )
-         IF (PAp(2) < 0) THEN ! modify angle psi, if it is greater than Pi
+         IF (PAp(2) < 0.0_ReKi) THEN ! modify angle psi, if it is greater than Pi
              psi = 2.0_ReKi * Pi_D - psi
          ENDIF
       
@@ -1114,9 +1114,9 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       ELSE
          Dx = PE(1) - PS(1)
          Dy = PE(2) - PS(2)
-         Lexy = SQRT( Dx**2 + Dy**2 )
+         Lexy = SQRT( Dx**2.0_ReKi + Dy**2.0_ReKi )
          
-         IF ( EqualRealNos( ( (PAp(1)-PS(1))**2 + (PAp(2)-PS(2))**2 + (PAp(3)-PS(3))**2 ), 0.0_ReKi) ) THEN
+         IF ( EqualRealNos( ( (PAp(1)-PS(1))**2.0_ReKi + (PAp(2)-PS(2))**2.0_ReKi + (PAp(3)-PS(3))**2.0_ReKi ), 0.0_ReKi) ) THEN
             ErrMsg = ' Point A should not lie on point S!'
             ErrStat = ErrID_Fatal
             RETURN
@@ -1126,7 +1126,7 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
          PApxy(2) = PS(2) + La * ( ( PE(1) - PS(1) ) / Lexy ) ! La * SIN(Phi)
          PApxy(3) = PS(3)
          
-         psi = ACOS( DOT_PRODUCT( PAp, PApxy ) / (La**2) )
+         psi = ACOS( DOT_PRODUCT( PAp, PApxy ) / (La**2.0_ReKi) )
          
          IF (PAp(3) < PApxy(3)) THEN ! modify angle psi, if it is greater than Pi
              psi = 2.0_ReKi * Pi_D - psi
