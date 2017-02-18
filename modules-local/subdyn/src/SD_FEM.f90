@@ -946,7 +946,7 @@ SUBROUTINE GetDirCos(X1, Y1, Z1, X2, Y2, Z2, DirCos, Le, psi, ErrStat, ErrMsg)
    
    IF ( EqualRealNos(Lexy, 0.0_ReKi) ) THEN
       DirCos=0.0_ReKi    ! whole matrix set to 0
-      IF ( Dz < 0) THEN  !x is kept along global x
+      IF ( Dz < 0.0_ReKi) THEN  !x is kept along global x
          DirCos(1, 1) =  COS(psi)
          DirCos(1, 2) =  -SIN(psi)
          DirCos(2, 1) =  -SIN(psi)
@@ -991,18 +991,18 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
    INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
    CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
    
-   INTEGER(IntKi)       :: I                             ! Counter index
-   REAL(ReKi)           :: S1, S2, S3, E1, E2, E3        ! (x,y,z) start and end coordinates of this element
-   REAL(ReKi)           :: PS(3), PE(3), SES(3)          ! Start point PS, end point PE and its subtraction as vectors. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: PA(3)                         ! 3rd orientation point PA of this member. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: PAp(3), PApxy(3)              ! Projected orientation point PAp and its origin point PAxy on the global SS-XY-plane for this member. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: ke_hat(3)                     ! Unit vector along z_e axis of the current member. Contains its (x,y,z) coordinates
-   REAL(ReKi)           :: lambda                        ! Scalar for point projection
-   REAL(ReKi)           :: Lexy, La                      ! Length from PS to PE (projected on global SS-XY-plane) and from node start point PS to projected point PAp
-   REAL(ReKi)           :: Dx, Dy                        ! Differences of X- and Y-coordinates of start and end node PS and PE
-   REAL(ReKi)           :: I_hat(3)                      ! Unit vector for global SS-X-axis
-   REAL(ReKi)           :: O_type                        ! Orientation type
-   INTEGER(IntKi)       :: MI                            ! Member index
+   INTEGER(IntKi)       :: I                               ! Counter index
+   REAL(ReKi)           :: S1, S2, S3, E1, E2, E3          ! (x,y,z) start and end coordinates of this element
+   REAL(ReKi)           :: PS(3), PE(3), SES(3)            ! Start point PS, end point PE and its subtraction as vectors. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: PA(3)                           ! 3rd orientation point PA of this member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: PAp(3), PA_ll(3), PApxy(3)      ! Projected orientation point PAp, its local vector from start point PS and its origin point PAxy (means psi=0) on the global SS-XY-plane for this member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: ie_hat(3), je_hat(3), ke_hat(3) ! Unit vector along x_e, y_e and z_e axis of the current member. Contains its (x,y,z) coordinates
+   REAL(ReKi)           :: lambda                          ! Scalar for point projection
+   REAL(ReKi)           :: Lexy, La                        ! Length from PS to PE (projected on global SS-XY-plane) and from node start point PS to projected point PAp
+   REAL(ReKi)           :: Dx, Dy                          ! Differences of X- and Y-coordinates of start and end node PS and PE
+   REAL(ReKi)           :: I_hat(3)                        ! Unit vector for global SS-X-axis
+   REAL(ReKi)           :: O_type                          ! Orientation type
+   INTEGER(IntKi)       :: MI                              ! Member index
         
    ErrMsg  = ""
    ErrStat = ErrID_None
@@ -1018,7 +1018,6 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
    
    IF ( EqualRealNos(O_type, 1.0_ReKi) ) THEN
       psi = Init%Members(MI, 7) * Pi_D / 180.0_ReKi ! convert user defined angle from deg into rad
-
    ELSEIF ( EqualRealNos(O_type, 2.0_ReKi) ) THEN
       !! point projection
       ! get start, end and orientation point position vector
@@ -1035,6 +1034,7 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       ! calculate unit vector along z_e axis
       SES = PE - PS
       ke_hat = SES / SQRT( SES(1)**2.0_ReKi + SES(2)**2.0_ReKi + SES(3)**2.0_ReKi )
+      
       
       !! check if point PA lies on the z_e axis. The cases make sure that we get no devision by 0.
       ! case member z_e axis is parallel to global SS-X-axis
@@ -1066,7 +1066,7 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
          ENDIF     
 
       ENDIF
-      
+
       !! calculate projected point PAp for different cases
       ! case member z_e axis is parallel to global SS-X-axis
       IF ( EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
@@ -1086,8 +1086,16 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
           PAp(2) = PA(2)
           PAp(3) = PS(3)
 
+      ! case member z_e axis is parallel to global SS-XY-plane
+      ELSEIF ( EqualRealNos(ke_hat(3), 0.0_ReKi)) THEN
+         ! calculate lambda
+         lambda = ( ke_hat(1)**2.0_ReKi + ke_hat(2)**2.0_ReKi) / ( ke_hat(1) * PA(1) - ke_hat(1) * PS(1) &
+                    + ke_hat(2) * PA(2) - ke_hat(2) * PS(2) )
+         ! calculate projected point PAp
+         PAp = PA - 1 / lambda * ke_hat
+
       ! case member z_e axis is not parallel to global SS-X-Y-Z axes (implies that neither ke_hat(1), ke_hat(2) and ke_hat(3) is 0)
-      ELSEIF ( .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
+      ELSEIF ( .NOT. (EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi)) .AND. .NOT. (EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi)) .AND. .NOT. (EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi)) .AND. .NOT. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
          ! calculate lambda
          lambda = ( ke_hat(3) +  ke_hat(1)**2.0_ReKi / ke_hat(3) + ke_hat(2)**2.0_ReKi / ke_hat(3)) &
                  / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
@@ -1098,15 +1106,17 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
       ENDIF
       
       !! calculate orientation angle psi according to PAp 
-      
-      La = SQRT( (PAp(1)-PS(1))**2.0_ReKi + (PAp(2)-PS(2))**2.0_ReKi + (PAp(3)-PS(3))**2.0_ReKi )
+      PA_ll = PAp - PS                                                                             ! calculate the local direction vector PA_ll, which is parallel the the local x_e, y_e plane
+      La = SQRT( (PAp(1)-PS(1))**2.0_ReKi + (PAp(2)-PS(2))**2.0_ReKi + (PAp(3)-PS(3))**2.0_ReKi )  ! length between projection point PAp and PS
+      ie_hat = PA_ll / ( PA_ll(1)**2.0_ReKi + PA_ll(2)**2.0_ReKi + PA_ll(3)**2.0_ReKi )            ! calculate unit vector along the local x_e axis
+      je_hat = CROSS_PRODUCT(ke_hat, ie_hat)                                                       ! calculate unit vector along the local y_e axis
       
       ! case member z_e axis is parallel to global SS-Z-axis
       IF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) ) THEN
          I_hat = 0.0_ReKi
          I_hat(1) = 1.0_ReKi
-         psi = ACOS( DOT_PRODUCT( PAp, I_hat ) / (La) )
-         IF (PAp(2) < 0.0_ReKi) THEN ! modify angle psi, if it is greater than Pi
+         psi = ACOS( DOT_PRODUCT( PA_ll, I_hat ) / (La) )
+         IF (PA_ll(2) < 0.0_ReKi) THEN ! modify angle psi, if it is greater than Pi
              psi = 2.0_ReKi * Pi_D - psi
          ENDIF
       
@@ -1115,23 +1125,23 @@ SUBROUTINE Getpsi(Init, p, MID, S1, S2, S3, E1, E2, E3, psi, ErrStat, ErrMsg)
          Dx = PE(1) - PS(1)
          Dy = PE(2) - PS(2)
          Lexy = SQRT( Dx**2.0_ReKi + Dy**2.0_ReKi )
-         
+
          IF ( EqualRealNos( ( (PAp(1)-PS(1))**2.0_ReKi + (PAp(2)-PS(2))**2.0_ReKi + (PAp(3)-PS(3))**2.0_ReKi ), 0.0_ReKi) ) THEN
             ErrMsg = ' Point A should not lie on point S!'
             ErrStat = ErrID_Fatal
             RETURN
          ENDIF
          
-         PApxy(1) = PS(1) + La * ( ( PS(2) - PE(2) ) / Lexy ) ! La * COS(Phi)
-         PApxy(2) = PS(2) + La * ( ( PE(1) - PS(1) ) / Lexy ) ! La * SIN(Phi)
-         PApxy(3) = PS(3)
+         PApxy(1) = La * ( ( PS(2) - PE(2) ) / Lexy ) ! La * COS(Phi)
+         PApxy(2) = La * ( ( PE(1) - PS(1) ) / Lexy ) ! La * SIN(Phi)
+         PApxy(3) = 0.0_ReKi
          
-         psi = ACOS( DOT_PRODUCT( PAp, PApxy ) / (La**2.0_ReKi) )
+         psi = ACOS( DOT_PRODUCT( PA_ll, PApxy ) / (La**2.0_ReKi) )
          
-         IF (PAp(3) < PApxy(3)) THEN ! modify angle psi, if it is greater than Pi
+         IF (PA_ll(2) < 0.0_ReKi) THEN ! modify angle psi, if it is greater than Pi
              psi = 2.0_ReKi * Pi_D - psi
          ENDIF
-         
+
       ENDIF
       
    ELSE
