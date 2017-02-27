@@ -1563,7 +1563,7 @@ DO I = 1, p%NMembers
       RETURN
    END IF
       
-ENDDO   
+ENDDO
 
 !------------------ MEMBER X-SECTION PROPERTY data 1/2 [isotropic material for now: use this table if circular-tubular elements ------------------------
 
