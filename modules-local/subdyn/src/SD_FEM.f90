@@ -958,7 +958,7 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
 
    DirCos=0.0_ReKi              ! whole matrix set to 0
    O_type = Init%Members(MI, 6) ! get current orientation type (1 = direct psi specification; 2 = 3rd point A specification)
-   
+
    IF ( EqualRealNos(O_type, 1.0_ReKi) ) THEN ! In the case of user specified angle psi
       psi = Init%Members(MI, 7) * Pi_D / 180.0_ReKi ! convert user defined angle from deg into rad
    
@@ -1039,7 +1039,7 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
          ENDIF     
 
       ENDIF
-
+      
       !! calculate projected point PAp for different cases
       ! case member z_e axis is parallel to global SS-X-axis
       IF ( EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
@@ -1052,13 +1052,13 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
           PAp(1) = PA(1)
           PAp(3) = PA(3)
           PAp(2) = PS(2)
-
+          
       ! case member z_e axis is parallel to global SS-Z-axis
       ELSEIF ( EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. EqualRealNos(ke_hat(2), 0.0_ReKi) ) THEN
           PAp(1) = PA(1)
           PAp(2) = PA(2)
           PAp(3) = PS(3)
-
+          
       ! case member z_e axis is parallel to global SS-XY-plane
       ELSEIF ( EqualRealNos(ke_hat(3), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi)) THEN
          ! calculate lambda
@@ -1066,23 +1066,22 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
                     + ke_hat(2) * PA(2) - ke_hat(2) * PS(2) )
          ! calculate projected point PAp
          PAp = PA - 1 / lambda * ke_hat
-
+         
       ! case member z_e axis is not parallel to global SS-X-Y-Z axes (implies that neither ke_hat(1), ke_hat(2) and ke_hat(3) is 0)
-      ELSEIF ( .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(3), 0.0_ReKi)) THEN
+      ELSE
          ! calculate lambda
          lambda = ( ke_hat(3) +  ke_hat(1)**2.0_ReKi / ke_hat(3) + ke_hat(2)**2.0_ReKi / ke_hat(3)) &
                  / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
                  - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) )
          ! calculate projected point PAp
          PAp = PA - 1 / lambda * ke_hat
-      
       ENDIF
       
       !! calculate orientation angle psi according to PAp 
       PA_ll = PAp - PS                                                                             ! calculate the local direction vector PA_ll, which is parallel the the local x_e, y_e plane
-      ie_hat = PA_ll / ( PA_ll(1)**2.0_ReKi + PA_ll(2)**2.0_ReKi + PA_ll(3)**2.0_ReKi )            ! calculate unit vector along the local x_e axis
+      ie_hat = PA_ll / SQRT( PA_ll(1)**2.0_ReKi + PA_ll(2)**2.0_ReKi + PA_ll(3)**2.0_ReKi )            ! calculate unit vector along the local x_e axis
       je_hat = CROSS_PRODUCT(ke_hat, ie_hat)                                                       ! calculate unit vector along the local y_e axis
-      
+
       ! write unit vectors to direction cosine matrix
       DirCos(1:3,1) = ie_hat(1:3)
       DirCos(1:3,2) = je_hat(1:3)
