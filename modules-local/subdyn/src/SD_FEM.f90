@@ -22,6 +22,7 @@
 !**********************************************************************************************************************************
 MODULE SD_FEM
   USE NWTC_Library
+  USE NWTC_LAPACK
   USE SubDyn_Types
   
   IMPLICIT NONE
@@ -874,7 +875,12 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       p%ElemProps(i)%DirCos = DirCos
          
          
-      CALL ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, Ke)
+      CALL ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, Ke, ErrStat2, ErrMsg2)
+         CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'ElemK' )
+         IF (ErrStat >= AbortErrLev) THEN
+            CALL CleanUp_AssembleKM()
+            RETURN
+         END IF
       CALL ElemM(A, L, Ixx, Iyy, Jzz, rho, DirCos, Me)
       CALL ElemG(A, L, rho, DirCos, FGe, Init%g)                                                                                                                                                               
 
@@ -1180,8 +1186,8 @@ END SUBROUTINE GetDirCos
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, K)
-   ! element stiffness matrix for classical beam elements
+SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, K, ErrStat, ErrMsg)
+   ! element stiffness matrix according to Schramm, U.; Rubenchik, V. and Pilkey W. D.: "Beam stiffness matrix based on the elasticity equations", International Journal for Numerical Methods in Engineering, Vol. 40, p. 211-232, 1997.
    ! shear is true  -- non-tapered Timoshenko beam 
    ! shear is false -- non-tapered Euler-Bernoulli beam 
 
@@ -1190,14 +1196,27 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    LOGICAL, INTENT( IN)                  :: Shear
    
    REAL(ReKi), INTENT(OUT)               :: K(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
+   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
+   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
+   
    REAL(ReKi)                            :: A_bar(3, 3) ! contains the shear, torsional and torsional-shear coupling terms
    REAL(ReKi)                            :: S_bar(3, 3) ! contains the second area moments of inertia
    REAL(ReKi)                            :: I_bar(3, 3) ! modified identety matrix
    REAL(ReKi)                            :: D(3, 3)     ! auxiliary matrix D
-   REAL(ReKi)                            :: D_inv(3, 3) ! inverted auxiliary matrix D
+   INTEGER(IntKi)                        :: IPIV(3)     ! The pivot indices; for 1 <= i <= min(M,N), row i of the matrix was interchanged with row IPIV(i)
+   REAL(R8Ki)                            :: WORK(3)     ! WORK(1) returns the optimal LWORK
+   REAL(R8Ki)                            :: D_inv(3, 3) ! inverted auxiliary matrix D
    REAL(ReKi)                            :: H(3, 3)     ! auxiliary matrix H
-   REAL(ReKi)                            :: B(3, 3)     ! auxiliary matrix B
+   REAL(ReKi)                            :: B(3, 3)     ! auxiliary matrix B (used instead of K, proposed in the paper)
+   REAL(ReKi)                            :: AM1(3, 3)   ! auxiliary matrix
+   REAL(ReKi)                            :: AM2(3, 3)   ! auxiliary matrix
+   REAL(ReKi)                            :: AM3(3, 3)   ! auxiliary matrix
+   REAL(ReKi)                            :: AM4(3, 3)   ! auxiliary matrix
    REAL(ReKi)                            :: DC(12, 12)  ! direction cosine matrix
+   REAL(ReKi)                            :: TESTM(3, 3)     ! TEST matrix
+   
+   ErrMsg  = ""
+   ErrStat = ErrID_None
    
    K = 0
    
@@ -1214,8 +1233,143 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    S_bar(3, 2) = E * Ixy
    S_bar(3, 3) = E * Iyy
    
+   ! define A_bar
+   A_bar = 0
+   A_bar(1,1) = Jzz / (G * Jzz)
+   A_bar(1,2) = azx / (G * Jzz)
+   A_bar(1,3) = azy / (G * Jzz)
+   A_bar(2,1) = azx / (G * Jzz)
+   A_bar(3,1) = azy / (G * Jzz)
+   A_bar(2,2) = axx / (G * A)
+   A_bar(2,3) = axy / (G * A)
+   A_bar(3,2) = axy / (G * A)
+   A_bar(1,3) = ayy / (G * A)
+   
    D = I_bar + 12 / L**2 * MATMUL(S_bar, A_bar)
-
+   D_inv = D
+   H = 4 * I_bar + 12 / L**2 * MATMUL(S_bar, A_bar)
+   B = 2 * I_bar - 12 / L**2 * MATMUL(S_bar, A_bar)
+   
+   CALL LAPACK_dgetrf( 3, 3, D_inv, IPIV, ErrStat, ErrMsg ) ! On entry, the M-by-N matrix to be factored. On exit, the factors L and U from the factorization D_inv = P*L*U; the unit diagonal elements of L are not stored.
+      IF ( ErrStat/= 0 ) THEN
+         ErrStat = ErrID_Fatal
+         RETURN
+      END IF
+    CALL LAPACK_dgetri( 3, D_inv, IPIV, WORK, 3, ErrStat, ErrMsg ) ! !< On entry, the factors L and U from the factorization D_inv = P*L*U as computed by DGETRF. On exit, if INFO = 0, the inverse of the original matrix D_inv.
+      IF ( ErrStat/= 0 ) THEN
+         ErrStat = ErrID_Fatal
+         RETURN
+      END IF
+   
+   AM1 = 12 / L**3 * MATMUL(D_inv, S_bar)
+   AM2 = 6 / L**2 * MATMUL(D_inv, S_bar)
+   AM3 = 1 / L * MATMUL(MATMUL(H, D_inv), S_bar)
+   AM4 = 1 / L * MATMUL(MATMUL(B, D_inv), S_bar)
+   
+   K(1:2, 1:2) = AM1(2:3, 2:3)
+   K(3, 3) = E * A / L
+   K(1, 4) = - AM2(2, 3)
+   K(1, 5) = AM2(2, 2)
+   K(2, 4) = - AM2(3, 3)
+   K(2, 5) = AM2(3, 2)
+   K(1:2, 6) = AM1(2:3, 1)
+   K(1:2, 7:8) = - AM1(2:3, 2:3)
+   K(3, 9) = - E * A / L
+   K(1, 10) = - AM2(2, 3)
+   K(1, 11) = AM2(2, 2)
+   K(2, 10) = - AM2(3, 3)
+   K(2, 11) = AM2(3, 2)
+   K(1:2, 12) = - AM1(2:3, 1)
+   K(4, 1) = K(1, 4)
+   K(4, 2) = K(2, 4)
+   K(5, 1) = K(1, 5)
+   K(5, 2) = K(2, 5)
+   K(6, 1) = K(1, 6)
+   K(6, 2) = K(2, 6)
+   K(4, 4) = AM3(3, 3)
+   K(4, 5) = - AM3(3, 2)
+   K(4, 6) = - AM2(3, 1)
+   K(4, 7) = AM2(3, 2)
+   K(4, 8) = AM2(3, 3)
+   K(4, 10) = AM4(3, 3)
+   K(4, 11) = - AM4(3, 2)
+   K(4, 12) = AM2(3, 1)
+   K(5, 4) = K(4, 5)
+   K(5, 5) = AM3(2, 2)
+   K(5, 6) = AM2(2, 1)
+   K(5, 7) = - AM2(2, 2)
+   K(5, 8) = - AM2(2, 3)
+   K(5, 10) = - AM4(2, 3)
+   K(5, 11) = AM4(2, 2)
+   K(5, 12) = - AM2(2, 1)
+   K(6, 4) = K(4, 6)
+   K(6, 5) = K(5, 6)
+   K(6, 6) = AM1(1, 1)
+   K(6, 7) = - AM1(1, 2)
+   K(6, 8) = - AM1(1, 3)
+   K(6, 10) = - AM2(1, 3)
+   K(6, 11) = AM2(1, 2)
+   K(6, 12) = - AM1(1, 1)
+   K(7, 1) = K(1, 7)
+   K(7, 2) = K(2, 7)
+   K(7, 3) = K(3, 7)
+   K(7, 4) = K(4, 7)
+   K(7, 5) = K(5, 7)
+   K(7, 6) = K(6, 7)
+   K(7, 7) = AM1(2, 2)
+   K(7, 8) = AM1(2, 3)
+   K(7, 10) = AM2(2, 3)
+   K(7, 11) = - AM2(2, 2)
+   K(7, 12) = AM1(2, 1)
+   K(8, 1) = K(1, 8)
+   K(8, 2) = K(2, 8)
+   K(8, 3) = K(3, 8)
+   K(8, 4) = K(4, 8)
+   K(8, 5) = K(5, 8)
+   K(8, 6) = K(6, 8)
+   K(8, 7) = K(7, 8)
+   K(8, 8) = AM1(3, 3)
+   K(8, 10) = AM2(3, 3)
+   K(8, 11) = - AM2(3, 2)
+   K(8, 12) = AM1(3, 1)
+   K(9, 3) = - E * A / L
+   K(9, 9) = E * A / L
+   K(10, 1) = K(1, 10)
+   K(10, 2) = K(2, 10)
+   K(10, 3) = K(3, 10)
+   K(10, 4) = K(4, 10)
+   K(10, 5) = K(5, 10)
+   K(10, 6) = K(6, 10)
+   K(10, 7) = K(7, 10)
+   K(10, 8) = K(8, 10)
+   K(10, 9) = K(9, 10)
+   K(10, 10) = AM3(3, 3)
+   K(10, 11) = - AM3(3, 2)
+   K(10, 12) = AM2(3, 1)
+   K(11, 1) = K(1, 11)
+   K(11, 2) = K(2, 11)
+   K(11, 3) = K(3, 11)
+   K(11, 4) = K(4, 11)
+   K(11, 5) = K(5, 11)
+   K(11, 6) = K(6, 11)
+   K(11, 7) = K(7, 11)
+   K(11, 8) = K(8, 11)
+   K(11, 9) = K(9, 11)
+   K(11, 10) = K(10, 11)
+   K(11, 11) = AM3(2, 2)
+   K(11, 12) = - AM2(2, 1)
+   K(12, 1) = K(1, 12)
+   K(12, 2) = K(2, 12)
+   K(12, 3) = K(3, 12)
+   K(12, 4) = K(4, 12)
+   K(12, 5) = K(5, 12)
+   K(12, 6) = K(6, 12)
+   K(12, 7) = K(7, 12)
+   K(12, 8) = K(8, 12)
+   K(12, 9) = K(9, 12)
+   K(12, 10) = K(10, 12)
+   K(12, 11) = K(11, 12)
+   K(12, 12) = AM1(1, 1)
    
    DC = 0
    DC( 1: 3,  1: 3) = DirCos
@@ -1225,7 +1379,7 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    
    K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
    
-   !write(*, *) K - TRANSPOSE(K)
+   write(*, *) K - TRANSPOSE(K)
 
 END SUBROUTINE ElemK
 !------------------------------------------------------------------------------------------------------

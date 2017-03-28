@@ -3922,7 +3922,11 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
             !Calculate Ke, Me to be used for output
             CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
             p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%axx, p%elemprops(L)%ayy, p%elemprops(L)%axy, &
-            p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE, p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst(I)%Ke(:,:,J,K2) )
+            p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE, p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst(I)%Ke(:,:,J,K2), ErrStat, ErrMsg )
+            IF ( ErrStat/= 0 ) THEN
+               ErrStat = ErrID_Fatal
+               RETURN
+            END IF
             CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
             p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst(I)%Me(:,:,J,K2) )   
                 
@@ -3990,7 +3994,11 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
                   CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
                               p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%axx, p%elemprops(L)%ayy, &
                               p%elemprops(L)%axy, p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE,  & 
-                              p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst2(I)%Ke2(:,:,K2) )
+                              p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst2(I)%Ke2(:,:,K2), ErrStat, ErrMsg  )
+                  IF ( ErrStat/= 0 ) THEN
+                     ErrStat = ErrID_Fatal
+                     RETURN
+                  END IF
                   CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
                               p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst2(I)%Me2(:,:,K2) )      
                   CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho, p%elemprops(L)%DirCos, p%MoutLst2(I)%Fg2(:,K2), Init%g )
@@ -4097,7 +4105,11 @@ ENDDO
               CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
                               p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%axx, p%elemprops(L)%ayy, &
                               p%elemprops(L)%axy, p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE,  & 
-                              p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst3(I)%Ke(:,:,1,K) )
+                              p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst3(I)%Ke(:,:,1,K), ErrStat, ErrMsg  )
+              IF ( ErrStat/= 0 ) THEN
+                 ErrStat = ErrID_Fatal
+                 RETURN
+              END IF
               CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
                               p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Me(:,:,1,K) )   
               CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Fg(:,1,K), Init%g )   
