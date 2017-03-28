@@ -39,7 +39,7 @@ MODULE SD_FEM
   INTEGER(IntKi),   PARAMETER  :: MaxNodesPerElem = 2                     ! Maximum number of nodes per element (currently 2)
   INTEGER(IntKi),   PARAMETER  :: MembersCol      = MaxNodesPerElem + 8   ! Number of columns in Members (Member-ID,MJointID1,MJointID2,MPropSetID1,MPropSetID2,Orientation,RotAngle,PointAXss,PointAYss,PointAZss)
   INTEGER(IntKi),   PARAMETER  :: PropSetsCol     = 6                     ! Number of columns in PropSets  (PropSetID,YoungE,ShearG,MatDens,XsecD,XsecT)  !bjj: this really doesn't need to store k, does it? or is this supposed to be an ID, in which case we shouldn't be storing k (except new property sets), we should be storing IDs
-  INTEGER(IntKi),   PARAMETER  :: XPropSetsCol    = 10                    ! Number of columns in XPropSets (PropSetID,YoungE,ShearG,MatDens,XsecA,XsecAsx,XsecAsy,XsecJxx,XsecJyy,XsecJ0)
+  INTEGER(IntKi),   PARAMETER  :: XPropSetsCol    = 14                    ! Number of columns in XPropSets (PropSetID,YoungE,ShearG,MatDens,XsecA,Xsecalphaxx,Xsecalphayy,Xsecalphaxy,Xsecalphazx,Xsecalphazy,XsecJxx,XsecJyy,XsecJxy,XsecJ0)
   INTEGER(IntKi),   PARAMETER  :: COSMsCol        = 10                    ! Number of columns in (cosine matrices) COSMs (COSMID,COSM11,COSM12,COSM13,COSM21,COSM22,COSM23,COSM31,COSM32,COSM33)
   INTEGER(IntKi),   PARAMETER  :: CMassCol        = 5                     ! Number of columns in Concentrated Mass (CMJointID,JMass,JMXX,JMYY,JMZZ)
   
@@ -122,7 +122,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    REAL(ReKi), ALLOCATABLE       :: TempProps(:, :)
    INTEGER, ALLOCATABLE          :: TempMembers(:, :) ,TempReacts(:,:)         
    INTEGER                       :: knode, kelem, kprop, nprop, MID
-   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, Ax1, Ax2, dAx, Ay1, Ay2, dAy, Ixx1, Ixx2, dIxx, Iyy1, Iyy2, dIyy, Jzz1, Jzz2, dJzz
+   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, axx1, axx2, daxx, ayy1, ayy2, dayy, axy1, axy2, daxy, azx1, azx2, dazx, azy1, azy2, dazy, Ixx1, Ixx2, dIxx, Iyy1, Iyy2, dIyy, Ixy1, Ixy2, dIxy, Jzz1, Jzz2, dJzz
    LOGICAL                       :: found, CreateNewProp
    INTEGER(IntKi)                :: ErrStat2
    CHARACTER(1024)               :: ErrMsg2
@@ -397,32 +397,48 @@ IF (Init%NDiv .GT. 1) THEN
       dz = ( z2 - z1 )/Init%NDiv
       
       A1 = TempProps(Prop1, 5)
-      Ax1 = TempProps(Prop1, 6)
-      Ay1 = TempProps(Prop1, 7)
-      Ixx1 = TempProps(Prop1, 8)
-      Iyy1 = TempProps(Prop1, 9)
-      Jzz1 = TempProps(Prop1, 10)
+      axx1 = TempProps(Prop1, 6)
+      ayy1 = TempProps(Prop1, 7)
+      axy1 = TempProps(Prop1, 8)
+      azx1 = TempProps(Prop1, 9)
+      azy1 = TempProps(Prop1, 10)
+      Ixx1 = TempProps(Prop1, 11)
+      Iyy1 = TempProps(Prop1, 12)
+      Ixy1 = TempProps(Prop1, 13)
+      Jzz1 = TempProps(Prop1, 14)
 
       A2 = TempProps(Prop2, 5)
-      Ax2 = TempProps(Prop2, 6)
-      Ay2 = TempProps(Prop2, 7)
-      Ixx2 = TempProps(Prop2, 8)
-      Iyy2 = TempProps(Prop2, 9)
-      Jzz2 = TempProps(Prop2, 10)
+      axx2 = TempProps(Prop2, 6)
+      ayy2 = TempProps(Prop2, 7)
+      axy2 = TempProps(Prop2, 8)
+      azx2 = TempProps(Prop2, 9)
+      azy2 = TempProps(Prop2, 10)
+      Ixx2 = TempProps(Prop2, 11)
+      Iyy2 = TempProps(Prop2, 12)
+      Ixy2 = TempProps(Prop2, 13)
+      Jzz2 = TempProps(Prop2, 14)
       
       dA = ( A2 - A1 )/Init%NDiv
-      dAx = ( Ax2 - Ax1 )/Init%NDiv
-      dAy = ( Ay2 - Ay1 )/Init%NDiv
+      daxx = ( axx2 - axx1 )/Init%NDiv
+      dayy = ( ayy2 - ayy1 )/Init%NDiv
+      daxy = ( axy2 - axy1 )/Init%NDiv
+      dazx = ( azx2 - azx1 )/Init%NDiv
+      dazy = ( azy2 - azy1 )/Init%NDiv
       dIxx = ( Ixx2 - Ixx1 )/Init%NDiv
       dIyy = ( Iyy2 - Iyy1 )/Init%NDiv
+      dIxy = ( Ixy2 - Ixy1 )/Init%NDiv
       dJzz = ( Jzz2 - Jzz1 )/Init%NDiv
       
          ! If dA and dAx and dAy and dIxx and dIyy and dJzz are 0, no interpolation is needed, and we can use the same property set for new nodes/elements. otherwise we'll have to create new properties for each new node
       CreateNewProp = .NOT. ( EqualRealNos( dA , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dAx , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dAy , 0.0_ReKi ) .AND. & 
+                              EqualRealNos( daxx , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dayy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( daxy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dazx , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dazy , 0.0_ReKi ) .AND. &
                               EqualRealNos( dIxx , 0.0_ReKi ) .AND. & 
-                              EqualRealNos( dIyy , 0.0_ReKi ) .AND. & 
+                              EqualRealNos( dIyy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dIxy , 0.0_ReKi ) .AND. &
                               EqualRealNos( dJzz , 0.0_ReKi ) )  
       
       ! node connect to Node1
@@ -433,11 +449,11 @@ IF (Init%NDiv .GT. 1) THEN
       
       IF ( CreateNewProp ) THEN   
            ! create a new property set 
-           ! k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, Init
+           ! k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Ixy, Jzz, Init
            
            kprop = kprop + 1
            CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), A1+dA, Ax1+dAx, Ay1+dAy, Ixx1+dIxx, Iyy1+dIyy, Jzz1+dJzz, TempProps)           
+                           TempProps(Prop1, 4), A1+dA, axx1+daxx, ayy1+dayy, axy1+daxy, azx1+dazx, azy1+dazy, Ixx1+dIxx, Iyy1+dIyy, Ixy1+dIxy, Jzz1+dJzz, TempProps)           
            kelem = kelem + 1
            CALL GetNewElem(kelem, Node1, knode, Prop1, kprop, MID, p)  
            nprop = kprop              
@@ -459,12 +475,12 @@ IF (Init%NDiv .GT. 1) THEN
          
          IF ( CreateNewProp ) THEN   
               ! create a new property set 
-              ! k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, Init
+              ! k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz, Init
               
               kprop = kprop + 1
            CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), A1 + J*dA, Ax1 + J*dAx, Ay1 + J*dAy,&
-                           Ixx1 + J*dIxx, Iyy1 + J*dIyy, Jzz1 + J*dJzz, TempProps)          
+                           TempProps(Prop1, 4), A1 + J*dA, axx1 + J*daxx, ayy1 + J*dayy,&
+                           axy1 + J*daxy, azx1 + J*dazx, azy1 + J*dazy, Ixx1 + J*dIxx, Iyy1 + J*dIyy, Ixy1 + J*dIxy, Jzz1 + J*dJzz, TempProps)          
               kelem = kelem + 1
               CALL GetNewElem(kelem, knode-1, knode, nprop, kprop, MID, p)
               nprop = kprop                
@@ -574,11 +590,11 @@ SUBROUTINE GetNewProp(k, E, G, rho, d, t, TempProps)
 END SUBROUTINE GetNewProp
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
-SUBROUTINE GetNewXProp(k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, TempProps)
+SUBROUTINE GetNewXProp(k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz, TempProps)
 
    
    INTEGER   , INTENT(IN)   :: k
-   REAL(ReKi), INTENT(IN)   :: E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz
+   REAL(ReKi), INTENT(IN)   :: E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz
    REAL(ReKi), INTENT(INOUT):: TempProps(:, :)
    
    TempProps(k, 1) = k
@@ -586,11 +602,15 @@ SUBROUTINE GetNewXProp(k, E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz, TempProps)
    TempProps(k, 3) = G
    TempProps(k, 4) = rho
    TempProps(k, 5) = A
-   TempProps(k, 6) = Ax
-   TempProps(k, 7) = Ay
-   TempProps(k, 8) = Ixx
-   TempProps(k, 9) = Iyy
-   TempProps(k, 10) = Jzz
+   TempProps(k, 6) = axx
+   TempProps(k, 7) = ayy
+   TempProps(k, 8) = axy
+   TempProps(k, 9) = azx
+   TempProps(k, 10) = azy
+   TempProps(k, 11) = Ixx
+   TempProps(k, 12) = Iyy
+   TempProps(k, 13) = Ixy
+   TempProps(k, 14) = Jzz
 
 END SUBROUTINE GetNewXProp
 !------------------------------------------------------------------------------------------------------
@@ -602,7 +622,7 @@ SUBROUTINE ConvertPropSets(Init)
    INTEGER                  :: I, J
 
    REAL(ReKi)               :: Da, t, E, G, rho ! properties of a circular section
-   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, kappa, A, Ax, Ay, nu, ratioSq ! conversion entities                       
+   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, A, axx, ayy, nu, ratioSq ! conversion entities                       
 
    
    J = Init%NXPropSets + 1 ! start index for circular properties within XPropSet
@@ -628,7 +648,7 @@ SUBROUTINE ConvertPropSets(Init)
             
       ! calculate kappa, which is for a circular cross-section in each direction the same
       IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
-          kappa = 0
+          axx = 0
                      
       ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
           ! kappa = 0.53            
@@ -636,12 +656,11 @@ SUBROUTINE ConvertPropSets(Init)
           ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
           nu = E / (2.0_ReKi*G) - 1.0_ReKi
           ratioSq = ( Di / Da )**2
-          kappa =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
+          axx =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
                   / ( ( 1.0 + ratioSq )**2 * ( 7.0 + 14.0*nu + 8.0*nu**2 ) + 4.0 * ratioSq * ( 5.0 + 10.0*nu + 4.0 *nu**2 ) )
       ENDIF
       
-      Ax = kappa * A
-      Ay = kappa * A
+      ayy = axx
                   
       ! add circular properties to XPropSet
       Init%XPropSets(J,1) = Init%PropSets(I,1)    ! add circular cross section ID to XPropSet
@@ -649,11 +668,15 @@ SUBROUTINE ConvertPropSets(Init)
       Init%XPropSets(J,3) = G                     ! add shear modulus to XPropSet
       Init%XPropSets(J,4) = rho                   ! add density to XPropSet
       Init%XPropSets(J,5) = A                     ! add area to XPropSet
-      Init%XPropSets(J,6) = Ax                    ! add shear area x to XPropSet
-      Init%XPropSets(J,7) = Ay                    ! add shear area y to XPropSet
-      Init%XPropSets(J,8) = Ixx                   ! add second area moment of inertia around x axis to XPropSet
-      Init%XPropSets(J,9) = Iyy                   ! add second area moment of inertia around y axis to XPropSet
-      Init%XPropSets(J,10) = Jzz                   ! add torsional moment of inertia to XPropSet
+      Init%XPropSets(J,6) = axx                   ! add shear deformation coefficient along x to XPropSet
+      Init%XPropSets(J,7) = ayy                   ! add shear deformation coefficient along y to XPropSet
+      Init%XPropSets(J,8) = 0.0_ReKi              ! add shear deformation coefficient for coupling between x and y to XPropSet
+      Init%XPropSets(J,9) = 0.0_ReKi              ! add torsion-shear coefficient for torsional coupling with respect to x to XPropSet
+      Init%XPropSets(J,10) = 0.0_ReKi             ! add torsion-shear coefficient for torsional coupling with respect to y to XPropSet
+      Init%XPropSets(J,11) = Ixx                  ! add second area moment of inertia around x axis to XPropSet
+      Init%XPropSets(J,12) = Iyy                  ! add second area moment of inertia around y axis to XPropSet
+      Init%XPropSets(J,13) = 0.0_ReKi             ! add second area moment of inertia for coupling between x and y axis to XPropSet
+      Init%XPropSets(J,14) = Jzz                  ! add torsional moment of inertia to XPropSet
       
       J = J + 1 ! add one to circular cross section index within XPropSet
    ENDDO
@@ -676,8 +699,8 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    INTEGER                  :: N1, N2     ! starting node and ending node in the element
    INTEGER                  :: P1, P2     ! property set numbers for starting and ending nodes
 
-   REAL(ReKi)               :: E, G, rho, A, Ax, Ay, Ixx, Iyy, Jzz ! properties of a section
-   REAL(ReKi)               :: A1, A2, Ax1, Ax2, Ay1, Ay2, Ixx1, Ixx2, Iyy1, Iyy2, Jzz1, Jzz2 ! properties of each node from one element
+   REAL(ReKi)               :: E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz ! properties of a section
+   REAL(ReKi)               :: A1, A2, axx1, axx2, ayy1, ayy2, axy1, axy2, azx1, azx2, azy1, azy2, Ixx1, Ixx2, Iyy1, Iyy2, Ixy1, Ixy2, Jzz1, Jzz2 ! properties of each node from one element
    REAL(ReKi)               :: X1, Y1, Z1, X2, Y2, Z2    ! coordinates of the nodes
    REAL(ReKi)               :: MID                       ! Current MemberID
    REAL(ReKi)               :: psi                       ! Orientation angle of the current cross-section
@@ -785,17 +808,25 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       G   = Init%Props(P1, 3)
       rho = Init%Props(P1, 4)
       A1  = Init%Props(P1, 5)
-      Ax1  = Init%Props(P1, 6)
-      Ay1  = Init%Props(P1, 7)
-      Ixx1  = Init%Props(P1, 8)
-      Iyy1  = Init%Props(P1, 9)
-      Jzz1  = Init%Props(P1, 10)
+      axx1  = Init%Props(P1, 6)
+      ayy1  = Init%Props(P1, 7)
+      axy1  = Init%Props(P1, 8)
+      azx1  = Init%Props(P1, 9)
+      azy1  = Init%Props(P1, 10)
+      Ixx1  = Init%Props(P1, 11)
+      Iyy1  = Init%Props(P1, 12)
+      Ixy1  = Init%Props(P1, 13)
+      Jzz1  = Init%Props(P1, 14)
       A2  = Init%Props(P2, 5)
-      Ax2  = Init%Props(P2, 6)
-      Ay2  = Init%Props(P2, 7)
-      Ixx2  = Init%Props(P2, 8)
-      Iyy2  = Init%Props(P2, 9)
-      Jzz2  = Init%Props(P2, 10)
+      axx2  = Init%Props(P2, 6)
+      ayy2  = Init%Props(P2, 7)
+      axy2  = Init%Props(P2, 8)
+      azx2  = Init%Props(P2, 9)
+      azy2  = Init%Props(P2, 10)
+      Ixx2  = Init%Props(P2, 11)
+      Iyy2  = Init%Props(P2, 12)
+      Ixy2  = Init%Props(P2, 13)
+      Jzz2  = Init%Props(P2, 14)
       
       X1  = Init%Nodes(N1, 2)
       Y1  = Init%Nodes(N1, 3)
@@ -813,10 +844,14 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
          END IF
          
       A = (A1 + A2) / 2.0_ReKi
-      Ax = (Ax1 + Ax2) / 2.0_ReKi
-      Ay = (Ay1 + Ay2) / 2.0_ReKi
+      axx = (axx1 + axx2) / 2.0_ReKi
+      ayy = (ayy1 + ayy2) / 2.0_ReKi
+      axy = (axy1 + axy2) / 2.0_ReKi
+      azx = (azx1 + azx2) / 2.0_ReKi
+      azy = (azy1 + azy2) / 2.0_ReKi
       Ixx = (Ixx1 + Ixx2) / 2.0_ReKi
       Iyy = (Iyy1 + Iyy2) / 2.0_ReKi
+      Ixy = (Ixy1 + Ixy2) / 2.0_ReKi
       Jzz = (Jzz1 + Jzz2) / 2.0_ReKi
          
          
@@ -824,10 +859,14 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       p%ElemProps(i)%Length = L
       p%ElemProps(i)%Ixx = Ixx
       p%ElemProps(i)%Iyy = Iyy
+      p%ElemProps(i)%Iyy = Ixy
       p%ElemProps(i)%Jzz = Jzz
       p%ElemProps(i)%Shear = Shear
-      p%ElemProps(i)%Ax = Ax
-      p%ElemProps(i)%Ay = Ay
+      p%ElemProps(i)%axx = axx
+      p%ElemProps(i)%ayy = ayy
+      p%ElemProps(i)%axy = axy
+      p%ElemProps(i)%azx = azx
+      p%ElemProps(i)%azy = azy
       p%ElemProps(i)%YoungE = E
       p%ElemProps(i)%ShearG = G
       p%ElemProps(i)%Rho = rho
@@ -835,7 +874,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       p%ElemProps(i)%DirCos = DirCos
          
          
-      CALL ElemK(A, L, Ixx, Iyy, Jzz, Shear, Ax, Ay, E, G, DirCos, Ke)
+      CALL ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, Ke)
       CALL ElemM(A, L, Ixx, Iyy, Jzz, rho, DirCos, Me)
       CALL ElemG(A, L, rho, DirCos, FGe, Init%g)                                                                                                                                                               
 
@@ -1141,71 +1180,42 @@ END SUBROUTINE GetDirCos
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE ElemK(A, L, Ixx, Iyy, Jzz, Shear, Ax, Ay, E, G, DirCos, K)
+SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, K)
    ! element stiffness matrix for classical beam elements
    ! shear is true  -- non-tapered Timoshenko beam 
    ! shear is false -- non-tapered Euler-Bernoulli beam 
 
-   REAL(ReKi), INTENT( IN)               :: A, L, Ixx, Iyy, Jzz, Ax, Ay, E, G
+   REAL(ReKi), INTENT( IN)               :: A, L, Ixx, Iyy, Ixy, Jzz, axx, ayy, axy, azx, azy, E, G
    REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
    LOGICAL, INTENT( IN)                  :: Shear
    
-   REAL(ReKi), INTENT(OUT)             :: K(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
-         
-   REAL(ReKi)                            :: Kx, Ky
-   REAL(ReKi)                            :: DC(12, 12)
+   REAL(ReKi), INTENT(OUT)               :: K(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
+   REAL(ReKi)                            :: A_bar(3, 3) ! contains the shear, torsional and torsional-shear coupling terms
+   REAL(ReKi)                            :: S_bar(3, 3) ! contains the second area moments of inertia
+   REAL(ReKi)                            :: I_bar(3, 3) ! modified identety matrix
+   REAL(ReKi)                            :: D(3, 3)     ! auxiliary matrix D
+   REAL(ReKi)                            :: D_inv(3, 3) ! inverted auxiliary matrix D
+   REAL(ReKi)                            :: H(3, 3)     ! auxiliary matrix H
+   REAL(ReKi)                            :: B(3, 3)     ! auxiliary matrix B
+   REAL(ReKi)                            :: DC(12, 12)  ! direction cosine matrix
    
    K = 0
    
-   IF (Shear) THEN
-      Kx = 12.0*E*Iyy / (G*Ax*L*L)
-      Ky = 12.0*E*Ixx / (G*Ay*L*L)
-   ELSE
-      Kx = 0.0
-      Ky = 0.0
-   ENDIF
-      
-   K( 9,  9) = E*A/L
-   K( 7,  7) = 12.0*E*Iyy/( L*L*L*(1.0 + Kx) )
-   K( 8,  8) = 12.0*E*Ixx/( L*L*L*(1.0 + Ky) )
-   K(12, 12) = G*Jzz/L
-   K(10, 10) = (4.0 + Ky)*E*Ixx / ( L*(1.0+Ky) )  
-   K(11, 11) = (4.0 + Kx)*E*Iyy / ( L*(1.0+Kx) )
-   K( 2,  4) = -6.*E*Ixx / ( L*L*(1.0+Ky) )
-   K( 1,  5) =  6.*E*Iyy / ( L*L*(1.0+Kx) )
-   K( 4, 10) = (2.0-Ky)*E*Ixx / ( L*(1.0+Ky) )
-   K( 5, 11) = (2.0-Kx)*E*Iyy / ( L*(1.0+Kx) )
+   ! define I_bar
+   I_bar = 0
+   I_bar(2, 2) = 1.0_ReKi
+   I_bar(3, 3) = 1.0_ReKi
    
-   K( 3,  3)  = K(9,9)
-   K( 1,  1)  = K(7,7)
-   K( 2,  2)  = K(8,8)
-   K( 6,  6)  = K(12,12)
-   K( 4,  4)  = K(10,10)
-   K(5,5)  = K(11,11)
-   K(4,2)  = K(2,4)
-   K(5,1)  = K(1,5)
-   K(10,4) = K(4,10)
-   K(11,5) = K(5,11)
-   K(12,6)= -K(6,6)
-   K(10,2)=  K(4,2)
-   K(11,1)=  K(5,1)
-   K(9,3) = -K(3,3)
-   K(7,1) = -K(1,1)
-   K(8,2) = -K(2,2)
-   K(6, 12) = -K(6,6)
-   K(2, 10) =  K(4,2)
-   K(1, 11) =  K(5,1)
-   K(3, 9)  = -K(3,3)
-   K(1, 7)  = -K(1,1)
-   K(2, 8)  = -K(2,2)
-   K(11,7) = -K(5,1)
-   K(10,8) = -K(4,2)
-   K(7,11) = -K(5,1)
-   K(8,10) = -K(4,2)
-   K(7,5) = -K(5,1)
-   K(5,7) = -K(5,1)
-   K(8,4) = -K(4,2)
-   K(4,8) = -K(4,2)
+   ! define S_bar
+   S_bar = 0
+   S_bar(1, 1) = 1
+   S_bar(2, 2) = E * Ixx
+   S_bar(2, 3) = E * Ixy
+   S_bar(3, 2) = E * Ixy
+   S_bar(3, 3) = E * Iyy
+   
+   D = I_bar + 12 / L**2 * MATMUL(S_bar, A_bar)
+
    
    DC = 0
    DC( 1: 3,  1: 3) = DirCos
