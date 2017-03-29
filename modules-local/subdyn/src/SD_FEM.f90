@@ -623,7 +623,7 @@ SUBROUTINE ConvertPropSets(Init)
    INTEGER                  :: I, J
 
    REAL(ReKi)               :: Da, t, E, G, rho ! properties of a circular section
-   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, A, axx, ayy, nu, ratioSq ! conversion entities                       
+   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, A, axx, ayy, kappa, nu, ratioSq ! conversion entities                       
 
    
    J = Init%NXPropSets + 1 ! start index for circular properties within XPropSet
@@ -657,8 +657,9 @@ SUBROUTINE ConvertPropSets(Init)
           ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
           nu = E / (2.0_ReKi*G) - 1.0_ReKi
           ratioSq = ( Di / Da )**2
-          axx =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
+          kappa =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
                   / ( ( 1.0 + ratioSq )**2 * ( 7.0 + 14.0*nu + 8.0*nu**2 ) + 4.0 * ratioSq * ( 5.0 + 10.0*nu + 4.0 *nu**2 ) )
+          axx = 1 / kappa
       ENDIF
       
       ayy = axx
@@ -860,7 +861,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       p%ElemProps(i)%Length = L
       p%ElemProps(i)%Ixx = Ixx
       p%ElemProps(i)%Iyy = Iyy
-      p%ElemProps(i)%Iyy = Ixy
+      p%ElemProps(i)%Ixy = Ixy
       p%ElemProps(i)%Jzz = Jzz
       p%ElemProps(i)%Shear = Shear
       p%ElemProps(i)%axx = axx
@@ -1213,7 +1214,6 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    REAL(ReKi)                            :: AM3(3, 3)   ! auxiliary matrix
    REAL(ReKi)                            :: AM4(3, 3)   ! auxiliary matrix
    REAL(ReKi)                            :: DC(12, 12)  ! direction cosine matrix
-   REAL(ReKi)                            :: TESTM(3, 3)     ! TEST matrix
    
    ErrMsg  = ""
    ErrStat = ErrID_None
@@ -1235,7 +1235,7 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    
    ! define A_bar
    A_bar = 0
-   A_bar(1,1) = Jzz / (G * Jzz)
+   A_bar(1,1) = 1 / (G * Jzz)
    A_bar(1,2) = azx / (G * Jzz)
    A_bar(1,3) = azy / (G * Jzz)
    A_bar(2,1) = azx / (G * Jzz)
@@ -1243,7 +1243,7 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    A_bar(2,2) = axx / (G * A)
    A_bar(2,3) = axy / (G * A)
    A_bar(3,2) = axy / (G * A)
-   A_bar(1,3) = ayy / (G * A)
+   A_bar(3,3) = ayy / (G * A)
    
    D = I_bar + 12 / L**2 * MATMUL(S_bar, A_bar)
    D_inv = D
@@ -1379,7 +1379,7 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    
    K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
    
-   write(*, *) K - TRANSPOSE(K)
+   !write(*, *) K - TRANSPOSE(K)
 
 END SUBROUTINE ElemK
 !------------------------------------------------------------------------------------------------------
