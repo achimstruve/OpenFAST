@@ -3133,7 +3133,7 @@ SUBROUTINE EigenSolve(K, M, nDOF, NOmega, Reduced, Init,p, Phi, Omega, ErrStat, 
    ! Omega2=ALPHAR/BETA  !Note this may not be correct if ALPHAI<>0 and/or BETA=0 TO INCLUDE ERROR CHECK, also they need to be sorted
    DO I=1,N !Initialize the key and calculate Omega2
       KEY(I)=I
-        
+      
       IF ( EqualRealNos(Beta(I),0.0_LAKi) ) THEN
          Omega2(I) = HUGE(Omega2)  ! bjj: should this be an error?
       ELSE
@@ -3172,7 +3172,8 @@ SUBROUTINE EigenSolve(K, M, nDOF, NOmega, Reduced, Init,p, Phi, Omega, ErrStat, 
    !===============================================================================
 
       ! Note:  NOmega must be <= N, which is the length of Omega2, Phi!
-   
+   WRITE(*,*) "Omega2(1:NOmega) : "
+   WRITE(*,*)  Omega2(1:NOmega)
    Omega=SQRT( Omega2(1:NOmega) ) !Assign my new Omega and below my new Phi (eigenvectors) [eigenvalues are actually the square of omega]
                   
 

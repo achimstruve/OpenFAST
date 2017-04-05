@@ -4488,6 +4488,9 @@ END SUBROUTINE SDOut_MapOutputs
         REAL(DbKi), DIMENSION(12)                    ::Junk,Junk1,Junk3,Junk4      ! temporary storage for output stuff
            
         Junk=matmul(Me,Udotdot)     !GLOBAL REFERENCE
+        WRITE(*,*) "Ke : ", Ke
+        WRITE(*,*) "Y2 : ", Y2
+        WRITE(*,*) "matmul(Ke,Y2) : ", matmul(Ke,Y2)
         Junk1=matmul(Ke,Y2) !GLOBAL REFERENCE 
         Junk1=Junk1- Fg     !GLOBAL REFERENCE  
         DO L=1,4  

@@ -897,6 +897,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
          DO K = 1, NNE
             kn = nn(k)
             
+            WRITE(*,*) "elem: ", I, "jn : ", jn, "kn : ", kn
             Init%K( (jn*6-5):(jn*6), (kn*6-5):(kn*6) ) = Init%K( (jn*6-5):(jn*6), (kn*6-5):(kn*6) ) &
                                                   + Ke( (J*6-5):(J*6), (K*6-5):(K*6) )
                   
@@ -1197,6 +1198,11 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    LOGICAL, INTENT( IN)                  :: Shear
    
    REAL(ReKi), INTENT(OUT)               :: K(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
+   REAL(ReKi)                            :: K2(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
+   REAL(ReKi)                            :: K3(12, 12)
+   REAL(ReKi)                            :: K4(12, 12)
+   REAL(ReKi)                            :: K5(12, 12)
+   REAL(ReKi)                            :: K6(12, 12)
    INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
    CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
    
@@ -1214,16 +1220,35 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    REAL(ReKi)                            :: AM3(3, 3)   ! auxiliary matrix
    REAL(ReKi)                            :: AM4(3, 3)   ! auxiliary matrix
    REAL(ReKi)                            :: DC(12, 12)  ! direction cosine matrix
+   REAL(ReKi)                            :: MM(3, 3)    ! MATMUL-MATRIX
+   REAL(ReKi)                            :: xs, ys      ! shear center offset (hard coded)
    
    ErrMsg  = ""
    ErrStat = ErrID_None
    
    K = 0
    
+   xs = - 0.01997605
+   ys = - 0.04424391
+   !WRITE(*,*) "Jx : ", Ixx
+   !WRITE(*,*) "Jy : ", Iyy
+   !WRITE(*,*) "Jxy : ", Ixy
+   !WRITE(*,*) "axx : ", axx
+   !WRITE(*,*) "ayy : ", ayy
+   !WRITE(*,*) "axy : ", axy
+   !WRITE(*,*) "azx : ", azx
+   !WRITE(*,*) "azy : ", azy
+   !WRITE(*,*) "G : ", G
+   !WRITE(*,*) "E : ", E
+   !WRITE(*,*) "L : ", L
+   !WRITE(*,*) "A : ", A 
+
    ! define I_bar
    I_bar = 0
    I_bar(2, 2) = 1.0_ReKi
    I_bar(3, 3) = 1.0_ReKi
+   !WRITE(*,*) "I_bar : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') I_bar
    
    ! define S_bar
    S_bar = 0
@@ -1232,6 +1257,8 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    S_bar(2, 3) = E * Ixy
    S_bar(3, 2) = E * Ixy
    S_bar(3, 3) = E * Iyy
+   !WRITE(*,*) "S_bar : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') S_bar
    
    ! define A_bar
    A_bar = 0
@@ -1244,11 +1271,26 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    A_bar(2,3) = axy / (G * A)
    A_bar(3,2) = axy / (G * A)
    A_bar(3,3) = ayy / (G * A)
+   !WRITE(*,*) "A_bar : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') A_bar
+   
+   !WRITE(*,*) "MATMUL(S_bar, A_bar) : "
+   MM = MATMUL(S_bar, A_bar)
+   !write(*, '(9(E15.3,E15.3,E15.3))') MM(1, 1:3)
+   !write(*, '(9(E15.3,E15.3,E15.3))') MM(2, 1:3)
+   !write(*, '(9(E15.3,E15.3,E15.3))') MM(3, 1:3)
+   !WRITE(*,*) "L : ", L
    
    D = I_bar + 12 / L**2 * MATMUL(S_bar, A_bar)
+   !WRITE(*,*) "D : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') D
    D_inv = D
    H = 4 * I_bar + 12 / L**2 * MATMUL(S_bar, A_bar)
+   !WRITE(*,*) "H : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') H
    B = 2 * I_bar - 12 / L**2 * MATMUL(S_bar, A_bar)
+   !WRITE(*,*) "B : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') B
    
    CALL LAPACK_dgetrf( 3, 3, D_inv, IPIV, ErrStat, ErrMsg ) ! On entry, the M-by-N matrix to be factored. On exit, the factors L and U from the factorization D_inv = P*L*U; the unit diagonal elements of L are not stored.
       IF ( ErrStat/= 0 ) THEN
@@ -1261,10 +1303,20 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
          RETURN
       END IF
    
+   !WRITE(*,*) "D_inv : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') D_inv
    AM1 = 12 / L**3 * MATMUL(D_inv, S_bar)
+   !WRITE(*,*) "AM1 : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') AM1
    AM2 = 6 / L**2 * MATMUL(D_inv, S_bar)
+   !WRITE(*,*) "AM2 : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') AM2
    AM3 = 1 / L * MATMUL(MATMUL(H, D_inv), S_bar)
+   !WRITE(*,*) "AM3 : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') AM3
    AM4 = 1 / L * MATMUL(MATMUL(B, D_inv), S_bar)
+   !WRITE(*,*) "AM4 : "
+   !write(*, '(9(E15.3,E15.3,E15.3))') AM4
    
    K(1:2, 1:2) = AM1(2:3, 2:3)
    K(3, 3) = E * A / L
@@ -1370,6 +1422,105 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    K(12, 10) = K(10, 12)
    K(12, 11) = K(11, 12)
    K(12, 12) = AM1(1, 1)
+    
+   K2 = K ! K2 is the original approach
+   
+   K = K2 ! set stiff. mat. back to original one
+   K(1:2, 4) = -K2(1:2, 4)
+   K(5:8, 4) = -K2(5:8, 4)
+   K(11:12, 4) = -K2(11:12, 4)
+   K(1:2, 10) = -K2(1:2, 10)
+   K(5:8, 10) = -K2(5:8, 10)
+   K(11:12, 10) = -K2(11:12, 10)
+   K(4, 1:2) = -K2(4, 1:2)
+   K(4, 5:8) = -K2(4, 5:8)
+   K(4, 11:12) = -K2(4, 11:12)
+   K(10, 1:2) = -K2(10, 1:2)
+   K(10, 5:8) = -K2(10, 5:8)
+   K(10, 11:12) = -K2(10, 11:12)
+   
+   K4 = K ! K4 contains the same stiffness as as K2 with exchanged signs for all DOF alpha related stiffness terms
+   
+   K(1:4, 5) = -K2(1:4, 5)
+   K(6:10, 5) = -K2(6:10, 5)
+   K(12, 5) = -K2(12, 5)
+   K(1:4, 11) = -K2(1:4, 11)
+   K(6:10, 11) = -K2(6:10, 11)
+   K(12, 11) = -K2(12, 11)
+   K(5, 1:4) = -K2(5, 1:4)
+   K(5, 6:10) = -K2(5, 6:10)
+   K(5, 12) = -K2(5, 12)
+   K(11, 1:4) = -K2(11, 1:4)
+   K(11, 6:10) = -K2(11, 6:10)
+   K(11, 12) = -K2(11, 12)
+   K5 = K ! K5 contains the same stiffness as as K4 with exchanged signs for all DOF beta related stiffness terms
+   
+   K(1:6, 1:6) = K2(7:12, 7:12)
+   K(1:6, 7:12) = K2(7:12, 1:6)
+   K(7:12, 1:6) = K2(1:6, 7:12)
+   K(7:12, 7:12) = K2(1:6, 1:6)
+   K3 = K ! K3 contains the stiffness matrix, where node 1 and two according to the paper are exchanged
+   
+   K = K2 ! use K2
+   
+   ! Add influence due to shear center offset according to approach from Bauchau
+   K(1, 6) = - K2(7, 7) * ys - K2(7, 8) * xs
+   K(1, 12) = K2(7, 7) * ys + K2(7, 8) * xs
+   K(2, 6) = K2(7, 8) * ys + K2(8, 8) * xs
+   K(2, 12) = - K2(7, 8) * ys - K2(8, 8) * xs
+   K(4, 12) = L * (K2(7, 8) * ys + K2(8, 8) * xs)
+   K(5, 12) = L * (K2(7, 7) * ys + K2(7, 8) * xs)
+   K(6, 1) = - K2(7, 7) * ys - K2(7, 8) * xs
+   K(6, 2) = K2(7, 8) * ys + K2(8, 8) * xs
+   K(6, 6) = K2(7, 7) * ys**2 + 2 * K2(7, 8) * xs * ys + K2(8, 8) * xs**2
+   K(6, 7) = K2(7, 7) * ys + K2(7, 8) * xs
+   K(6, 8) = - K2(7, 8) * ys - K2(8, 8) * xs
+   K(6, 12) = - K2(7, 7) * ys**2 - 2 * K2(7, 8) * xs * ys - K2(8, 8) * xs**2
+   K(7, 6) = K2(7, 7) * ys + K2(7, 8) * xs
+   K(7, 12) = - K2(7, 7) * ys - K2(7, 8) * xs
+   K(8, 6) = - K2(7, 8) * ys - K2(8, 8) * xs
+   K(8, 12) = K2(7, 8) * ys + K2(8, 8) * xs
+   K(12, 1) = K2(7, 7) * ys + K2(7, 8) * xs
+   K(12, 2) = - K2(7, 8) * ys - K2(8, 8) * xs
+   K(12, 4) = L * (K2(7, 8) * ys + K2(8, 8) * xs)
+   K(12, 5) = L * (K2(7, 7) * ys + K2(7, 8) * xs)
+   K(12, 6) = - K2(7, 7) * ys**2 - 2 * K2(7, 8) * xs * ys - K2(8, 8) * xs**2
+   K(12, 7) = - K2(7, 7) * ys - K2(7, 8) * xs
+   K(12, 8) = K2(7, 8) * ys + K2(8, 8) * xs
+   K(12, 12) = K2(7, 7) * ys**2 + 2 * K2(7, 8) * xs * ys + K2(8, 8) * xs**2
+   
+   K6 = K ! the same stiffness matrix as K2 but with shear center offset influence
+   
+   K = K2 ! set stiff. mat. back to original one
+   K(1:2, 4) = -K2(1:2, 4)
+   K(5:8, 4) = -K2(5:8, 4)
+   K(11:12, 4) = -K2(11:12, 4)
+   K(1:2, 10) = -K2(1:2, 10)
+   K(5:8, 10) = -K2(5:8, 10)
+   K(11:12, 10) = -K2(11:12, 10)
+   K(4, 1:2) = -K2(4, 1:2)
+   K(4, 5:8) = -K2(4, 5:8)
+   K(4, 11:12) = -K2(4, 11:12)
+   K(10, 1:2) = -K2(10, 1:2)
+   K(10, 5:8) = -K2(10, 5:8)
+   K(10, 11:12) = -K2(10, 11:12)
+   
+   K4 = K ! K4 contains the same stiffness as as K2 with exchanged signs for all DOF alpha related stiffness terms
+   
+   K = K2 ! use K2
+   !WRITE(*,*) "K : "
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(1, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(2, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(3, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(4, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(5, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(6, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(7, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(8, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(9, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(10, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(11, 1:12)
+   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(12, 1:12)
    
    DC = 0
    DC( 1: 3,  1: 3) = DirCos
@@ -1379,8 +1530,10 @@ SUBROUTINE ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G,
    
    K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
    
-   !write(*, *) K - TRANSPOSE(K)
+   !WRITE(*,*) "K - TRANSPOSE(K): "
+   !write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') K - TRANSPOSE(K)
 
+   
 END SUBROUTINE ElemK
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
