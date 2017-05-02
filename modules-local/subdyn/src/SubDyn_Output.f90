@@ -3927,7 +3927,7 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
                ErrStat = ErrID_Fatal
                RETURN
             END IF
-            CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
+            CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
             p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst(I)%Me(:,:,J,K2) )   
                 
                 CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho, p%elemprops(L)%DirCos, p%MoutLst(I)%Fg(:,J,K2), Init%g )
@@ -3999,7 +3999,7 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
                      ErrStat = ErrID_Fatal
                      RETURN
                   END IF
-                  CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
+                  CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy,&
                               p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst2(I)%Me2(:,:,K2) )      
                   CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho, p%elemprops(L)%DirCos, p%MoutLst2(I)%Fg2(:,K2), Init%g )
                    
@@ -4110,7 +4110,7 @@ ENDDO
                  ErrStat = ErrID_Fatal
                  RETURN
               END IF
-              CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy,&
+              CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy,&
                               p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Me(:,:,1,K) )   
               CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Fg(:,1,K), Init%g )   
               
@@ -4488,9 +4488,6 @@ END SUBROUTINE SDOut_MapOutputs
         REAL(DbKi), DIMENSION(12)                    ::Junk,Junk1,Junk3,Junk4      ! temporary storage for output stuff
            
         Junk=matmul(Me,Udotdot)     !GLOBAL REFERENCE
-        WRITE(*,*) "Ke : ", Ke
-        WRITE(*,*) "Y2 : ", Y2
-        WRITE(*,*) "matmul(Ke,Y2) : ", matmul(Ke,Y2)
         Junk1=matmul(Ke,Y2) !GLOBAL REFERENCE 
         Junk1=Junk1- Fg     !GLOBAL REFERENCE  
         DO L=1,4  

@@ -3172,8 +3172,6 @@ SUBROUTINE EigenSolve(K, M, nDOF, NOmega, Reduced, Init,p, Phi, Omega, ErrStat, 
    !===============================================================================
 
       ! Note:  NOmega must be <= N, which is the length of Omega2, Phi!
-   WRITE(*,*) "Omega2(1:NOmega) : "
-   WRITE(*,*)  Omega2(1:NOmega)
    Omega=SQRT( Omega2(1:NOmega) ) !Assign my new Omega and below my new Phi (eigenvectors) [eigenvalues are actually the square of omega]
                   
 
