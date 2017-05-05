@@ -3913,7 +3913,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'Number of arbitrary cross-section properties. Contains likewise converted circular cross-section properties. (NXProps):',Init%NXPropSets
-   WRITE(UnSum, '(A8,14(A15))')  'Prop No.',     'YoungE',       'ShearG',       'MatDens',     'XsecA',      'Xsecalphaxx',      'Xsecalphayy',      'Xsecalphaxy',      'Xsecalphazx',      'Xsecalphazy',      'XsecJxx',      'XsecJyy',      'XsecJxy',      'XsecJzz'
+   WRITE(UnSum, '(A8,14(A15))')  'Prop No.',     'YoungE',       'ShearG',       'MatDens',     'XsecA',      'XsecAx',      'XsecAy',      'XsecAxy',      'Xsecxs',      'Xsecys',      'XsecJxx',      'XsecJyy',      'XsecJxy',      'XsecJzz'
    WRITE(UnSum, '(I8, E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6  ) ') (NINT(Init%Props(i, 1)), (Init%Props(i, j), j = 2, 14), i = 1, Init%NProp)
 
    WRITE(UnSum, '()') 

@@ -123,7 +123,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    REAL(ReKi), ALLOCATABLE       :: TempProps(:, :)
    INTEGER, ALLOCATABLE          :: TempMembers(:, :) ,TempReacts(:,:)         
    INTEGER                       :: knode, kelem, kprop, nprop, MID
-   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, axx1, axx2, daxx, ayy1, ayy2, dayy, axy1, axy2, daxy, azx1, azx2, dazx, azy1, azy2, dazy, Ixx1, Ixx2, dIxx, Iyy1, Iyy2, dIyy, Ixy1, Ixy2, dIxy, Jzz1, Jzz2, dJzz
+   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, Ax1, Ax2, dAx, Ay1, Ay2, dAy, Axy1, Axy2, dAxy, xs1, xs2, dxs, ys1, ys2, dys, Jx1, Jx2, dJx, Jy1, Jy2, dJy, Jxy1, Jxy2, dJxy, Jz1, Jz2, dJz
    LOGICAL                       :: found, CreateNewProp
    INTEGER(IntKi)                :: ErrStat2
    CHARACTER(1024)               :: ErrMsg2
@@ -398,49 +398,49 @@ IF (Init%NDiv .GT. 1) THEN
       dz = ( z2 - z1 )/Init%NDiv
       
       A1 = TempProps(Prop1, 5)
-      axx1 = TempProps(Prop1, 6)
-      ayy1 = TempProps(Prop1, 7)
-      axy1 = TempProps(Prop1, 8)
-      azx1 = TempProps(Prop1, 9)
-      azy1 = TempProps(Prop1, 10)
-      Ixx1 = TempProps(Prop1, 11)
-      Iyy1 = TempProps(Prop1, 12)
-      Ixy1 = TempProps(Prop1, 13)
-      Jzz1 = TempProps(Prop1, 14)
+      Ax1 = TempProps(Prop1, 6)
+      Ay1 = TempProps(Prop1, 7)
+      Axy1 = TempProps(Prop1, 8)
+      xs1 = TempProps(Prop1, 9)
+      ys1 = TempProps(Prop1, 10)
+      Jx1 = TempProps(Prop1, 11)
+      Jy1 = TempProps(Prop1, 12)
+      Jxy1 = TempProps(Prop1, 13)
+      Jz1 = TempProps(Prop1, 14)
 
       A2 = TempProps(Prop2, 5)
-      axx2 = TempProps(Prop2, 6)
-      ayy2 = TempProps(Prop2, 7)
-      axy2 = TempProps(Prop2, 8)
-      azx2 = TempProps(Prop2, 9)
-      azy2 = TempProps(Prop2, 10)
-      Ixx2 = TempProps(Prop2, 11)
-      Iyy2 = TempProps(Prop2, 12)
-      Ixy2 = TempProps(Prop2, 13)
-      Jzz2 = TempProps(Prop2, 14)
+      Ax2 = TempProps(Prop2, 6)
+      Ay2 = TempProps(Prop2, 7)
+      Axy2 = TempProps(Prop2, 8)
+      xs2 = TempProps(Prop2, 9)
+      ys2 = TempProps(Prop2, 10)
+      Jx2 = TempProps(Prop2, 11)
+      Jy2 = TempProps(Prop2, 12)
+      Jxy2 = TempProps(Prop2, 13)
+      Jz2 = TempProps(Prop2, 14)
       
-      dA = ( A2 - A1 )/Init%NDiv
-      daxx = ( axx2 - axx1 )/Init%NDiv
-      dayy = ( ayy2 - ayy1 )/Init%NDiv
-      daxy = ( axy2 - axy1 )/Init%NDiv
-      dazx = ( azx2 - azx1 )/Init%NDiv
-      dazy = ( azy2 - azy1 )/Init%NDiv
-      dIxx = ( Ixx2 - Ixx1 )/Init%NDiv
-      dIyy = ( Iyy2 - Iyy1 )/Init%NDiv
-      dIxy = ( Ixy2 - Ixy1 )/Init%NDiv
-      dJzz = ( Jzz2 - Jzz1 )/Init%NDiv
+      dA   = ( A2 - A1 )/Init%NDiv
+      dAx  = ( Ax2 - Ax1 )/Init%NDiv
+      dAy  = ( Ay2 - Ay1 )/Init%NDiv
+      dAxy = ( Axy2 - Axy1 )/Init%NDiv
+      dxs  = ( xs2 - xs1 )/Init%NDiv
+      dys  = ( ys2 - ys1 )/Init%NDiv
+      dJx  = ( Jx2 - Jx1 )/Init%NDiv
+      dJy  = ( Jy2 - Jy1 )/Init%NDiv
+      dJxy = ( Jxy2 - Jxy1 )/Init%NDiv
+      dJz  = ( Jz2 - Jz1 )/Init%NDiv
       
          ! If dA and dAx and dAy and dIxx and dIyy and dJzz are 0, no interpolation is needed, and we can use the same property set for new nodes/elements. otherwise we'll have to create new properties for each new node
       CreateNewProp = .NOT. ( EqualRealNos( dA , 0.0_ReKi ) .AND. &
-                              EqualRealNos( daxx , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dayy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( daxy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dazx , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dazy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dIxx , 0.0_ReKi ) .AND. & 
-                              EqualRealNos( dIyy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dIxy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dJzz , 0.0_ReKi ) )  
+                              EqualRealNos( dAx , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dAy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dAxy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dxs , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dys , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dJx , 0.0_ReKi ) .AND. & 
+                              EqualRealNos( dJy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dJxy , 0.0_ReKi ) .AND. &
+                              EqualRealNos( dJz , 0.0_ReKi ) )  
       
       ! node connect to Node1
       knode = knode + 1
@@ -450,11 +450,11 @@ IF (Init%NDiv .GT. 1) THEN
       
       IF ( CreateNewProp ) THEN   
            ! create a new property set 
-           ! k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Ixy, Jzz, Init
+           ! k, E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz, Init
            
            kprop = kprop + 1
            CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), A1+dA, axx1+daxx, ayy1+dayy, axy1+daxy, azx1+dazx, azy1+dazy, Ixx1+dIxx, Iyy1+dIyy, Ixy1+dIxy, Jzz1+dJzz, TempProps)           
+                           TempProps(Prop1, 4), A1+dA, Ax1+dAx, Ay1+dAy, Axy1+dAxy, xs1+dxs, ys1+dys, Jx1+dJx, Jy1+dJy, Jxy1+dJxy, Jz1+dJz, TempProps)           
            kelem = kelem + 1
            CALL GetNewElem(kelem, Node1, knode, Prop1, kprop, MID, p)  
            nprop = kprop              
@@ -476,12 +476,12 @@ IF (Init%NDiv .GT. 1) THEN
          
          IF ( CreateNewProp ) THEN   
               ! create a new property set 
-              ! k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz, Init
+              ! k, E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz
               
               kprop = kprop + 1
            CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), A1 + J*dA, axx1 + J*daxx, ayy1 + J*dayy,&
-                           axy1 + J*daxy, azx1 + J*dazx, azy1 + J*dazy, Ixx1 + J*dIxx, Iyy1 + J*dIyy, Ixy1 + J*dIxy, Jzz1 + J*dJzz, TempProps)          
+                           TempProps(Prop1, 4), A1 + J*dA, Ax1 + J*dAx, Ay1 + J*dAy,&
+                           Axy1 + J*dAxy, xs1 + J*dxs, ys1 + J*dys, Jx1 + J*dJx, Jy1 + J*dJy, Jxy1 + J*dJxy, Jz1 + J*dJz, TempProps)          
               kelem = kelem + 1
               CALL GetNewElem(kelem, knode-1, knode, nprop, kprop, MID, p)
               nprop = kprop                
@@ -591,11 +591,11 @@ SUBROUTINE GetNewProp(k, E, G, rho, d, t, TempProps)
 END SUBROUTINE GetNewProp
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
-SUBROUTINE GetNewXProp(k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz, TempProps)
+SUBROUTINE GetNewXProp(k, E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz, TempProps)
 
    
    INTEGER   , INTENT(IN)   :: k
-   REAL(ReKi), INTENT(IN)   :: E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz
+   REAL(ReKi), INTENT(IN)   :: E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz
    REAL(ReKi), INTENT(INOUT):: TempProps(:, :)
    
    TempProps(k, 1) = k
@@ -603,15 +603,15 @@ SUBROUTINE GetNewXProp(k, E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, 
    TempProps(k, 3) = G
    TempProps(k, 4) = rho
    TempProps(k, 5) = A
-   TempProps(k, 6) = axx
-   TempProps(k, 7) = ayy
-   TempProps(k, 8) = axy
-   TempProps(k, 9) = azx
-   TempProps(k, 10) = azy
-   TempProps(k, 11) = Ixx
-   TempProps(k, 12) = Iyy
-   TempProps(k, 13) = Ixy
-   TempProps(k, 14) = Jzz
+   TempProps(k, 6) = Ax
+   TempProps(k, 7) = Ay
+   TempProps(k, 8) = Axy
+   TempProps(k, 9) = xs
+   TempProps(k, 10) = ys
+   TempProps(k, 11) = Jx
+   TempProps(k, 12) = Jy
+   TempProps(k, 13) = Jxy
+   TempProps(k, 14) = Jz
 
 END SUBROUTINE GetNewXProp
 !------------------------------------------------------------------------------------------------------
@@ -623,7 +623,7 @@ SUBROUTINE ConvertPropSets(Init)
    INTEGER                  :: I, J
 
    REAL(ReKi)               :: Da, t, E, G, rho ! properties of a circular section
-   REAL(ReKi)               :: Di, Ra, Ri, Ixx, Iyy, Jzz, A, axx, ayy, kappa, nu, ratioSq ! conversion entities                       
+   REAL(ReKi)               :: Di, Ra, Ri, Jx, Jy, Jz, A, axx, ayy, kappa, nu, ratioSq ! conversion entities                       
 
    
    J = Init%NXPropSets + 1 ! start index for circular properties within XPropSet
@@ -643,9 +643,9 @@ SUBROUTINE ConvertPropSets(Init)
       Di = Ri * 2
             
       A = Pi_D * (Ra*Ra - Ri*Ri)
-      Ixx = 0.25 * Pi_D * (Ra**4-Ri**4)
-      Iyy = Ixx
-      Jzz = 2.0 * Ixx
+      Jx = 0.25 * Pi_D * (Ra**4-Ri**4)
+      Jy = Jx
+      Jz = 2.0 * Jx
             
       ! calculate kappa, which is for a circular cross-section in each direction the same
       IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
@@ -670,15 +670,15 @@ SUBROUTINE ConvertPropSets(Init)
       Init%XPropSets(J,3) = G                     ! add shear modulus to XPropSet
       Init%XPropSets(J,4) = rho                   ! add density to XPropSet
       Init%XPropSets(J,5) = A                     ! add area to XPropSet
-      Init%XPropSets(J,6) = axx                   ! add shear deformation coefficient along x to XPropSet
-      Init%XPropSets(J,7) = ayy                   ! add shear deformation coefficient along y to XPropSet
-      Init%XPropSets(J,8) = 0.0_ReKi              ! add shear deformation coefficient for coupling between x and y to XPropSet
-      Init%XPropSets(J,9) = 0.0_ReKi              ! add torsion-shear coefficient for torsional coupling with respect to x to XPropSet
-      Init%XPropSets(J,10) = 0.0_ReKi             ! add torsion-shear coefficient for torsional coupling with respect to y to XPropSet
-      Init%XPropSets(J,11) = Ixx                  ! add second area moment of inertia around x axis to XPropSet
-      Init%XPropSets(J,12) = Iyy                  ! add second area moment of inertia around y axis to XPropSet
+      Init%XPropSets(J,6) = 1.0_ReKi / axx * A    ! add corrected shear area along x to XPropSet
+      Init%XPropSets(J,7) = 1.0_ReKi / ayy * A    ! add corrected shear area along y to XPropSet
+      Init%XPropSets(J,8) = 0.0_ReKi              ! add corrected shear area for coupling between x and y to XPropSet
+      Init%XPropSets(J,9) = 0.0_ReKi              ! add shear center offset in x-direction
+      Init%XPropSets(J,10) = 0.0_ReKi             ! add shear center offset in y-direction
+      Init%XPropSets(J,11) = Jx                   ! add second area moment of inertia around x axis to XPropSet
+      Init%XPropSets(J,12) = Jy                   ! add second area moment of inertia around y axis to XPropSet
       Init%XPropSets(J,13) = 0.0_ReKi             ! add second area moment of inertia for coupling between x and y axis to XPropSet
-      Init%XPropSets(J,14) = Jzz                  ! add torsional moment of inertia to XPropSet
+      Init%XPropSets(J,14) = Jz                   ! add torsional moment of inertia to XPropSet
       
       J = J + 1 ! add one to circular cross section index within XPropSet
    ENDDO
@@ -701,8 +701,8 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    INTEGER                  :: N1, N2     ! starting node and ending node in the element
    INTEGER                  :: P1, P2     ! property set numbers for starting and ending nodes
 
-   REAL(ReKi)               :: E, G, rho, A, axx, ayy, axy, azx, azy, Ixx, Iyy, Ixy, Jzz ! properties of a section
-   REAL(ReKi)               :: A1, A2, axx1, axx2, ayy1, ayy2, axy1, axy2, azx1, azx2, azy1, azy2, Ixx1, Ixx2, Iyy1, Iyy2, Ixy1, Ixy2, Jzz1, Jzz2 ! properties of each node from one element
+   REAL(ReKi)               :: E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz ! properties of a section
+   REAL(ReKi)               :: A1, A2, Ax1, Ax2, Ay1, Ay2, Axy1, Axy2, xs1, xs2, ys1, ys2, Jx1, Jx2, Jy1, Jy2, Jxy1, Jxy2, Jz1, Jz2 ! properties of each node from one element
    REAL(ReKi)               :: X1, Y1, Z1, X2, Y2, Z2    ! coordinates of the nodes
    REAL(ReKi)               :: MID                       ! Current MemberID
    REAL(ReKi)               :: psi                       ! Orientation angle of the current cross-section
@@ -810,25 +810,25 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       G   = Init%Props(P1, 3)
       rho = Init%Props(P1, 4)
       A1  = Init%Props(P1, 5)
-      axx1  = Init%Props(P1, 6)
-      ayy1  = Init%Props(P1, 7)
-      axy1  = Init%Props(P1, 8)
-      azx1  = Init%Props(P1, 9)
-      azy1  = Init%Props(P1, 10)
-      Ixx1  = Init%Props(P1, 11)
-      Iyy1  = Init%Props(P1, 12)
-      Ixy1  = Init%Props(P1, 13)
-      Jzz1  = Init%Props(P1, 14)
+      Ax1  = Init%Props(P1, 6)
+      Ay1  = Init%Props(P1, 7)
+      Axy1  = Init%Props(P1, 8)
+      xs1  = Init%Props(P1, 9)
+      ys1  = Init%Props(P1, 10)
+      Jx1  = Init%Props(P1, 11)
+      Jy1  = Init%Props(P1, 12)
+      Jxy1  = Init%Props(P1, 13)
+      Jz1  = Init%Props(P1, 14)
       A2  = Init%Props(P2, 5)
-      axx2  = Init%Props(P2, 6)
-      ayy2  = Init%Props(P2, 7)
-      axy2  = Init%Props(P2, 8)
-      azx2  = Init%Props(P2, 9)
-      azy2  = Init%Props(P2, 10)
-      Ixx2  = Init%Props(P2, 11)
-      Iyy2  = Init%Props(P2, 12)
-      Ixy2  = Init%Props(P2, 13)
-      Jzz2  = Init%Props(P2, 14)
+      Ax2  = Init%Props(P2, 6)
+      Ay2  = Init%Props(P2, 7)
+      Axy2  = Init%Props(P2, 8)
+      xs2  = Init%Props(P2, 9)
+      ys2  = Init%Props(P2, 10)
+      Jx2  = Init%Props(P2, 11)
+      Jy2  = Init%Props(P2, 12)
+      Jxy2  = Init%Props(P2, 13)
+      Jz2  = Init%Props(P2, 14)
       
       X1  = Init%Nodes(N1, 2)
       Y1  = Init%Nodes(N1, 3)
@@ -845,44 +845,47 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
             RETURN
          END IF
          
-      A = (A1 + A2) / 2.0_ReKi
-      axx = (axx1 + axx2) / 2.0_ReKi
-      ayy = (ayy1 + ayy2) / 2.0_ReKi
-      axy = (axy1 + axy2) / 2.0_ReKi
-      azx = (azx1 + azx2) / 2.0_ReKi
-      azy = (azy1 + azy2) / 2.0_ReKi
-      Ixx = (Ixx1 + Ixx2) / 2.0_ReKi
-      Iyy = (Iyy1 + Iyy2) / 2.0_ReKi
-      Ixy = (Ixy1 + Ixy2) / 2.0_ReKi
-      Jzz = (Jzz1 + Jzz2) / 2.0_ReKi
+      A   = (A1 + A2) / 2.0_ReKi
+      Ax  = (Ax1 + Ax2) / 2.0_ReKi
+      Ay  = (Ay1 + Ay2) / 2.0_ReKi
+      Axy = (Axy1 + Axy2) / 2.0_ReKi
+      xs  = (xs1 + xs2) / 2.0_ReKi
+      ys  = (ys1 + ys2) / 2.0_ReKi
+      Jx  = (Jx1 + Jx2) / 2.0_ReKi
+      Jy  = (Jy1 + Jy2) / 2.0_ReKi
+      Jxy = (Jxy1 + Jxy2) / 2.0_ReKi
+      Jz  = (Jz1 + Jz2) / 2.0_ReKi
          
          
       p%ElemProps(i)%Area = A
       p%ElemProps(i)%Length = L
-      p%ElemProps(i)%Ixx = Ixx
-      p%ElemProps(i)%Iyy = Iyy
-      p%ElemProps(i)%Ixy = Ixy
-      p%ElemProps(i)%Jzz = Jzz
-      p%ElemProps(i)%Shear = Shear
-      p%ElemProps(i)%axx = axx
-      p%ElemProps(i)%ayy = ayy
-      p%ElemProps(i)%axy = axy
-      p%ElemProps(i)%azx = azx
-      p%ElemProps(i)%azy = azy
+      p%ElemProps(i)%Jx = Jx
+      p%ElemProps(i)%Jy = Jy
+      p%ElemProps(i)%Jxy = Jxy
+      p%ElemProps(i)%Jz = Jz
+      p%ElemProps(i)%Ax = Ax
+      p%ElemProps(i)%Ay = Ay
+      p%ElemProps(i)%Axy = Axy
+      p%ElemProps(i)%xs = xs
+      p%ElemProps(i)%ys = ys
       p%ElemProps(i)%YoungE = E
       p%ElemProps(i)%ShearG = G
       p%ElemProps(i)%Rho = rho
       p%ElemProps(i)%psi = psi
       p%ElemProps(i)%DirCos = DirCos
          
-         
-      CALL ElemK(A, L, Ixx, Iyy, Ixy, Jzz, Shear, axx, ayy, axy, azx, azy, E, G, DirCos, Ke, ErrStat2, ErrMsg2)
+      CALL ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, Ke, ErrStat2, ErrMsg2)
          CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'ElemK' )
          IF (ErrStat >= AbortErrLev) THEN
             CALL CleanUp_AssembleKM()
             RETURN
          END IF
-      CALL ElemM(A, L, Ixx, Iyy, Ixy, Jzz, rho, DirCos, Me)
+      CALL ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, Me, ErrStat2, ErrMsg2)
+         CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'ElemM' )
+         IF (ErrStat >= AbortErrLev) THEN
+            CALL CleanUp_AssembleKM()
+            RETURN
+         END IF
       CALL ElemG(A, L, rho, DirCos, FGe, Init%g)                                                                                                                                                               
 
       
@@ -1187,7 +1190,7 @@ END SUBROUTINE GetDirCos
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Shear, axx, ayy, alpha_xy, azx, azy, E, G, DirCos, K, ErrStat, ErrMsg)
+SUBROUTINE ElemK_old(A, L, Jx, Jy, Jxy, Jz, Shear, axx, ayy, alpha_xy, azx, azy, E, G, DirCos, K, ErrStat, ErrMsg)
    ! element stiffness matrix according to Schramm, U.; Rubenchik, V. and Pilkey W. D.: "Beam stiffness matrix based on the elasticity equations", International Journal for Numerical Methods in Engineering, Vol. 40, p. 211-232, 1997.
    ! shear is true  -- non-tapered Timoshenko beam 
    ! shear is false -- non-tapered Euler-Bernoulli beam 
@@ -1220,14 +1223,14 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Shear, axx, ayy, alpha_xy, azx, azy, E, 
    Ay  = 1/ayy * A
    Axy = 1/alpha_xy * A
    
-   WRITE(*,*) "Jx : ", Jx
-   WRITE(*,*) "Jy : ", Jy
-   WRITE(*,*) "Jxy : ", Jxy
-   WRITE(*,*) "Jz : ", Jz
-   WRITE(*,*) "G : ", G
-   WRITE(*,*) "E : ", E
-   WRITE(*,*) "L : ", L
-   WRITE(*,*) "A : ", A
+   !WRITE(*,*) "Jx : ", Jx
+   !WRITE(*,*) "Jy : ", Jy
+   !WRITE(*,*) "Jxy : ", Jxy
+   !WRITE(*,*) "Jz : ", Jz
+   !WRITE(*,*) "G : ", G
+   !WRITE(*,*) "E : ", E
+   !WRITE(*,*) "L : ", L
+   !WRITE(*,*) "A : ", A
    
    
    K(1, 1) = 1.0*Ax*G/L
@@ -1399,173 +1402,354 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Shear, axx, ayy, alpha_xy, azx, azy, E, 
    
    K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
    
+   WRITE(*,*) "K - TRANSPOSE(K): "
+   write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') K - TRANSPOSE(K)
+
+   
+END SUBROUTINE ElemK_old
+
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
+SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, ErrStat, ErrMsg)
+   ! Element stiffness matrix for beam element with arbitrary cross-section - defined with respect to the centroid
+   ! Theory reference: Taeseong Kim, Anders M. Hansen, and Kim Branner.:"Development of an anisotropic beam finite element for composite wind turbine blades in multibody system."Renewable Energy 59 (2013): 172-183.
+
+   REAL(ReKi), INTENT( IN)               :: A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G
+   REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
+   
+   REAL(ReKi)                            :: K(12, 12)          ! Beam stiffness matrix
+   REAL(ReKi)                            :: Ks(6, 6)           ! Cross-sectional stiffness matrix
+   REAL(ReKi)                            :: xc, yc             ! Centroid offset coordinates with respect to the reference frame
+   REAL(ReKi)                            :: DC(12, 12)         ! Direction cosine matrix
+   REAL(ReKi)                            :: Y1(36, 12), Y2(36, 24), Q(24, 24), P(24, 12), N_a(36, 12), N1(12, 12), N2(12, 24), N(6, 36), dN(6, 36), B0(6, 6), B(6, 36), D(36, 36), Aa1(36, 12), Aa2(36, 24) ! Auxillary matrices for mass matrix calculation
+   REAL(ReKi)                            :: I6(6, 6)           ! Identity matrix
+   REAL(ReKi)                            :: Gp(6), Wp(6)       ! Gauss integration points and weight factors
+   INTEGER(IntKi)                        :: i, ii, iii         ! counter
+   INTEGER                               :: LWORK              ! The dimension of the array WORK. LWORK >= max(1,N). For optimal performance LWORK >= N*NB, where NB is the optimal blocksize returned by ILAENV. If LWORK = -1, then a workspace query is assumed; the routine only calculates the optimal size of the WORK array, returns this value as the first entry of the WORK array, and no error message related to LWORK is issued by XERBLA.
+   INTEGER                               :: IPIV(12)           ! dimension (N). The pivot indices from DGETRF; for 1<=i<=N, row i of the matrix was interchanged with row IPIV(i).
+   REAL(R8Ki)                            :: Q_inv(24, 24), N1_inv(12, 12) ! On entry, the factors L and U from the factorization A = P*L*U as computed by SGETRF. On exit, if INFO = 0, the inverse of the original matrix A.
+   REAL(R8Ki)                            :: WORK(12)           !< On exit, if INFO=0, then WORK(1) returns the optimal LWORK.
+
+   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat     ! Error status of the operation
+   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+   
+   ErrMsg  = ""
+   ErrStat = ErrID_None
+     
+   xc = 0.0            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
+   yc = 0.0            ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
+   
+   ! Initialize matrices
+   Y1 = 0.0_ReKi
+   Y2 = 0.0_ReKi
+   Q = 0.0_ReKi
+   P = 0.0_ReKi
+   N = 0.0_ReKi
+   dN = 0.0_ReKi
+   N1 = 0.0_ReKi
+   N2 = 0.0_ReKi
+   Aa1 = 0.0_ReKi
+   Aa2 = 0.0_ReKi
+   Gp = 0.0_ReKi
+   Wp = 0.0_ReKi
+   I6 = 0.0_ReKi
+   B0 = 0.0_ReKi
+   B = 0.0_ReKi
+   D = 0.0_ReKi
+   
+   ! Establish cross-sectional stiffness matrix
+   Ks(1, 1) = Ax*G
+   Ks(1, 2) = -Axy*G
+   Ks(1, 6) = -Ax*G*ys - Axy*G*xs
+   Ks(2, 1) = -Axy*G
+   Ks(2, 2) = Ay*G
+   Ks(2, 6) = Axy*G*ys + Ay*G*xs
+   Ks(3, 3) = A*E
+   Ks(3, 4) = A*E*yc
+   Ks(3, 5) = -A*E*xc
+   Ks(4, 3) = A*E*yc
+   Ks(4, 4) = A*E*yc**2 + E*Jx
+   Ks(4, 5) = -A*E*xc*yc - E*Jxy
+   Ks(5, 3) = -A*E*xc
+   Ks(5, 4) = -A*E*xc*yc - E*Jxy
+   Ks(5, 5) = A*E*xc**2 + E*Jy
+   Ks(6, 1) = -Ax*G*ys - Axy*G*xs
+   Ks(6, 2) = Axy*G*ys + Ay*G*xs
+   Ks(6, 6) = Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz
+      
+   ! Establish auxillary matrices
+   FORALL(I = 1:6) I6(I,I) = 1.0_ReKi     ! Create identity matrix
+   
+   B0(1, 5) = -1.0_ReKi
+   B0(2, 4) = 1.0_ReKi
+   
+   N1(1:6, 1:6) = I6
+   N1(7:12, 1:6) = I6
+   N1(7:12, 7:12) = I6 * L
+   
+   N2(7:12, 1:6) = I6 * L**2.0_ReKi
+   N2(7:12, 7:12) = I6 * L**3.0_ReKi
+   N2(7:12, 13:18) = I6 * L**4.0_ReKi
+   N2(7:12, 19:24) = I6 * L**5.0_ReKi
+   
+   Aa1(1:6, 1:6) = I6
+   Aa1(7:12, 7:12) = I6
+   
+   Aa2(13:18, 1:6) = I6
+   Aa2(19:24, 7:12) = I6
+   Aa2(25:30, 13:18) = I6
+   Aa2(31:36, 19:24) = I6
+   
+   N1_inv = N1
+   CALL LAPACK_DGETRF( 12, 12, N1_inv, IPIV, ErrStat, ErrMsg )
+   CALL LAPACK_getri(12, N1_inv, IPIV, WORK, 12, ErrStat, ErrMsg)
+   
+   Y1 = MATMUL(Aa1, N1_inv)
+   Y2 = Aa2 - MATMUL(MATMUL(Aa1, N1_inv), N2)
+   
+   ! Establish Gauss-points and its weighting factors (5 points)
+   Gp(1) = 0.0337652428984 * L
+   Gp(2) = 0.169395306767 * L
+   Gp(3) = 0.380690406958 * L
+   Gp(4) = 0.619309593042 * L
+   Gp(5) = 0.830604693233 * L
+   Gp(6) = 0.966234757102 * L
+   
+   Wp(1) = 0.0856622461896 * L
+   Wp(2) = 0.180380786524 * L
+   Wp(3) = 0.233956967286 * L
+   Wp(4) = 0.233956967286 * L
+   Wp(5) = 0.180380786524 * L
+   Wp(6) = 0.0856622461896 * L
+   
+   DO i = 1, 6
+      ! Polynomial matrix
+      N(1:6, 1:6) = I6
+      N(1:6, 7:12) = I6 * Gp(i)
+      N(1:6, 13:18) = I6 * Gp(i)**2
+      N(1:6, 19:24) = I6 * Gp(i)**3
+      N(1:6, 25:30) = I6 * Gp(i)**4
+      N(1:6, 31:36) = I6 * Gp(i)**5
+      
+      ! Derivative of polynomial matrix
+      dN(1:6, 7:12) = I6
+      dN(1:6, 13:18) = I6 * 2_ReKi * Gp(i)
+      dN(1:6, 19:24) = I6 * 3_ReKi * Gp(i)**2_ReKi
+      dN(1:6, 25:30) = I6 * 4_ReKi * Gp(i)**3_ReKi
+      dN(1:6, 31:36) = I6 * 5_ReKi * Gp(i)**4_ReKi
+      
+      B = MATMUL(B0, N) + dN
+   
+      D = D + MATMUL(MATMUL(TRANSPOSE(B), Ks), B) * Wp(i)
+   ENDDO   
+
+   P = MATMUL(MATMUL(TRANSPOSE(Y2), D), Y1)
+   Q = -MATMUL(MATMUL(TRANSPOSE(Y2), D), Y2)
+   
+   Q_inv = Q
+   
+   CALL LAPACK_DGETRF( 24, 24, Q_inv, IPIV, ErrStat, ErrMsg )
+   CALL LAPACK_getri(24, Q_inv, IPIV, WORK, 24, ErrStat, ErrMsg)
+
+   N_a = Y1 + MATMUL(MATMUL(Y2, Q_inv), P)
+
+   K = MATMUL(MATMUL(TRANSPOSE(N_a) ,D), N_a)
+   
+   DC = 0
+   DC( 1: 3,  1: 3) = DirCos
+   DC( 4: 6,  4: 6) = DirCos
+   DC( 7: 9,  7: 9) = DirCos
+   DC(10:12, 10:12) = DirCos
+   
+   K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
+   
+   !WRITE(*,*) "K :"
+   !WRITE(*, '(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3)') ((K(i, ii), ii = 1, 12), i = 1, 12)
+
    !WRITE(*,*) "K - TRANSPOSE(K): "
    !write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') K - TRANSPOSE(K)
 
-   
 END SUBROUTINE ElemK
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, rho, DirCos, M)
-   ! element mass matrix for classical beam elements
+SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, M, ErrStat, ErrMsg)
+   ! Element mass matrix with shear respecting shape functions
+   ! Theory reference: Taeseong Kim, Anders M. Hansen, and Kim Branner.:"Development of an anisotropic beam finite element for composite wind turbine blades in multibody system."Renewable Energy 59 (2013): 172-183.
 
-
-   REAL(ReKi), INTENT( IN)               :: A, L, Jx, Jy, Jxy, Jz, rho
+   REAL(ReKi), INTENT( IN)               :: A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G
    REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
    
-   REAL(ReKi)             :: M(12, 12)
-         
-   REAL(ReKi)                            :: xc, yc
-   REAL(ReKi)                            :: DC(12, 12)
+   REAL(ReKi)                            :: M_a(36, 36)        ! Auxillary mass matrix
+   REAL(ReKi)                            :: M(12, 12)          ! Mass matrix
+   REAL(ReKi)                            :: Ms(6, 6), Ks(6, 6) ! Cross-sectional mass and stiffness matrix        
+   REAL(ReKi)                            :: xc, yc             ! Centroid offset coordinates with respect to the reference frame
+   REAL(ReKi)                            :: DC(12, 12)         ! Direction cosine matrix
+   REAL(ReKi)                            :: Y1(36, 12), Y2(36, 24), Q(24, 24), P(24, 12), N_a(36, 12), N1(12, 12), N2(12, 24), N(6, 36), dN(6, 36), B0(6, 6), B(6, 36), D(36, 36), Aa1(36, 12), Aa2(36, 24) ! Auxillary matrices for mass matrix calculation
+   REAL(ReKi)                            :: I6(6, 6)           ! Identity matrix
+   REAL(ReKi)                            :: Gp(6), Wp(6)       ! Gauss integration points and weight factors
+   INTEGER(IntKi)                        :: i, ii              ! counter
+   INTEGER                               :: LWORK              ! The dimension of the array WORK. LWORK >= max(1,N). For optimal performance LWORK >= N*NB, where NB is the optimal blocksize returned by ILAENV. If LWORK = -1, then a workspace query is assumed; the routine only calculates the optimal size of the WORK array, returns this value as the first entry of the WORK array, and no error message related to LWORK is issued by XERBLA.
+   INTEGER                               :: IPIV(12)           ! dimension (N). The pivot indices from DGETRF; for 1<=i<=N, row i of the matrix was interchanged with row IPIV(i).
+   REAL(R8Ki)                            :: Q_inv(24, 24), N1_inv(12, 12) ! On entry, the factors L and U from the factorization A = P*L*U as computed by SGETRF. On exit, if INFO = 0, the inverse of the original matrix A.
+   REAL(R8Ki)                            :: WORK(12)           !< On exit, if INFO=0, then WORK(1) returns the optimal LWORK.
 
-   xc = 0.0   ! controid offset from reference frame in x direction
-   yc = 0.0   ! controid offset from reference frame in y direction
+   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat     ! Error status of the operation
+   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
    
-   M(1, 1) = rho*(13*A*L**2 + 42*Jy)/(35*L)
-   M(1, 2) = 6*Jxy*rho/(5*L)
-   M(1, 3) = A*rho*xc/2
-   M(1, 4) = -Jxy*rho/10
-   M(1, 5) = rho*(11*A*L**2 + 21*Jy)/210
-   M(1, 6) = -7*A*L*rho*yc/20
-   M(1, 7) = 3*rho*(3*A*L**2 - 28*Jy)/(70*L)
-   M(1, 8) = -6*Jxy*rho/(5*L)
-   M(1, 9) = A*rho*xc/2
-   M(1, 10) = -Jxy*rho/10
-   M(1, 11) = rho*(-13*A*L**2 + 42*Jy)/420
-   M(1, 12) = -3*A*L*rho*yc/20
-   M(2, 1) = 6*Jxy*rho/(5*L)
-   M(2, 2) = rho*(13*A*L**2 + 42*Jx)/(35*L)
-   M(2, 3) = A*rho*yc/2
-   M(2, 4) = -rho*(11*A*L**2 + 21*Jx)/210
-   M(2, 5) = Jxy*rho/10
-   M(2, 6) = -7*A*L*rho*xc/20
-   M(2, 7) = -6*Jxy*rho/(5*L)
-   M(2, 8) = 3*rho*(3*A*L**2 - 28*Jx)/(70*L)
-   M(2, 9) = A*rho*yc/2
-   M(2, 10) = rho*(13*A*L**2 - 42*Jx)/420
-   M(2, 11) = Jxy*rho/10
-   M(2, 12) = -3*A*L*rho*xc/20
-   M(3, 1) = A*rho*xc/2
-   M(3, 2) = A*rho*yc/2
-   M(3, 3) = A*L*rho/3
-   M(3, 4) = A*L*rho*yc/12
-   M(3, 5) = -A*L*rho*xc/12
-   M(3, 6) = 0
-   M(3, 7) = -A*rho*xc/2
-   M(3, 8) = -A*rho*yc/2
-   M(3, 9) = A*L*rho/6
-   M(3, 10) = -A*L*rho*yc/12
-   M(3, 11) = A*L*rho*xc/12
-   M(3, 12) = 0
-   M(4, 1) = -Jxy*rho/10
-   M(4, 2) = -rho*(11*A*L**2 + 21*Jx)/210
-   M(4, 3) = A*L*rho*yc/12
-   M(4, 4) = L*rho*(A*L**2 + 14*Jx)/105
-   M(4, 5) = -2*Jxy*L*rho/15
-   M(4, 6) = A*L**2*rho*xc/20
-   M(4, 7) = Jxy*rho/10
-   M(4, 8) = rho*(-13*A*L**2 + 42*Jx)/420
-   M(4, 9) = -A*L*rho*yc/12
-   M(4, 10) = -L*rho*(3*A*L**2 + 14*Jx)/420
-   M(4, 11) = Jxy*L*rho/30
-   M(4, 12) = A*L**2*rho*xc/30
-   M(5, 1) = rho*(11*A*L**2 + 21*Jy)/210
-   M(5, 2) = Jxy*rho/10
-   M(5, 3) = -A*L*rho*xc/12
-   M(5, 4) = -2*Jxy*L*rho/15
-   M(5, 5) = L*rho*(A*L**2 + 14*Jy)/105
-   M(5, 6) = -A*L**2*rho*yc/20
-   M(5, 7) = rho*(13*A*L**2 - 42*Jy)/420
-   M(5, 8) = -Jxy*rho/10
-   M(5, 9) = A*L*rho*xc/12
-   M(5, 10) = Jxy*L*rho/30
-   M(5, 11) = -L*rho*(3*A*L**2 + 14*Jy)/420
-   M(5, 12) = -A*L**2*rho*yc/30
-   M(6, 1) = -7*A*L*rho*yc/20
-   M(6, 2) = -7*A*L*rho*xc/20
-   M(6, 3) = 0
-   M(6, 4) = A*L**2*rho*xc/20
-   M(6, 5) = -A*L**2*rho*yc/20
-   M(6, 6) = Jz*L*rho/3
-   M(6, 7) = -3*A*L*rho*yc/20
-   M(6, 8) = -3*A*L*rho*xc/20
-   M(6, 9) = 0
-   M(6, 10) = -A*L**2*rho*xc/30
-   M(6, 11) = A*L**2*rho*yc/30
-   M(6, 12) = Jz*L*rho/6
-   M(7, 1) = 3*rho*(3*A*L**2 - 28*Jy)/(70*L)
-   M(7, 2) = -6*Jxy*rho/(5*L)
-   M(7, 3) = -A*rho*xc/2
-   M(7, 4) = Jxy*rho/10
-   M(7, 5) = rho*(13*A*L**2 - 42*Jy)/420
-   M(7, 6) = -3*A*L*rho*yc/20
-   M(7, 7) = rho*(13*A*L**2 + 42*Jy)/(35*L)
-   M(7, 8) = 6*Jxy*rho/(5*L)
-   M(7, 9) = -A*rho*xc/2
-   M(7, 10) = Jxy*rho/10
-   M(7, 11) = -rho*(11*A*L**2 + 21*Jy)/210
-   M(7, 12) = -7*A*L*rho*yc/20
-   M(8, 1) = -6*Jxy*rho/(5*L)
-   M(8, 2) = 3*rho*(3*A*L**2 - 28*Jx)/(70*L)
-   M(8, 3) = -A*rho*yc/2
-   M(8, 4) = rho*(-13*A*L**2 + 42*Jx)/420
-   M(8, 5) = -Jxy*rho/10
-   M(8, 6) = -3*A*L*rho*xc/20
-   M(8, 7) = 6*Jxy*rho/(5*L)
-   M(8, 8) = rho*(13*A*L**2 + 42*Jx)/(35*L)
-   M(8, 9) = -A*rho*yc/2
-   M(8, 10) = rho*(11*A*L**2 + 21*Jx)/210
-   M(8, 11) = -Jxy*rho/10
-   M(8, 12) = -7*A*L*rho*xc/20
-   M(9, 1) = A*rho*xc/2
-   M(9, 2) = A*rho*yc/2
-   M(9, 3) = A*L*rho/6
-   M(9, 4) = -A*L*rho*yc/12
-   M(9, 5) = A*L*rho*xc/12
-   M(9, 6) = 0
-   M(9, 7) = -A*rho*xc/2
-   M(9, 8) = -A*rho*yc/2
-   M(9, 9) = A*L*rho/3
-   M(9, 10) = A*L*rho*yc/12
-   M(9, 11) = -A*L*rho*xc/12
-   M(9, 12) = 0
-   M(10, 1) = -Jxy*rho/10
-   M(10, 2) = rho*(13*A*L**2 - 42*Jx)/420
-   M(10, 3) = -A*L*rho*yc/12
-   M(10, 4) = -L*rho*(3*A*L**2 + 14*Jx)/420
-   M(10, 5) = Jxy*L*rho/30
-   M(10, 6) = -A*L**2*rho*xc/30
-   M(10, 7) = Jxy*rho/10
-   M(10, 8) = rho*(11*A*L**2 + 21*Jx)/210
-   M(10, 9) = A*L*rho*yc/12
-   M(10, 10) = L*rho*(A*L**2 + 14*Jx)/105
-   M(10, 11) = -2*Jxy*L*rho/15
-   M(10, 12) = -A*L**2*rho*xc/20
-   M(11, 1) = rho*(-13*A*L**2 + 42*Jy)/420
-   M(11, 2) = Jxy*rho/10
-   M(11, 3) = A*L*rho*xc/12
-   M(11, 4) = Jxy*L*rho/30
-   M(11, 5) = -L*rho*(3*A*L**2 + 14*Jy)/420
-   M(11, 6) = A*L**2*rho*yc/30
-   M(11, 7) = -rho*(11*A*L**2 + 21*Jy)/210
-   M(11, 8) = -Jxy*rho/10
-   M(11, 9) = -A*L*rho*xc/12
-   M(11, 10) = -2*Jxy*L*rho/15
-   M(11, 11) = L*rho*(A*L**2 + 14*Jy)/105
-   M(11, 12) = A*L**2*rho*yc/20
-   M(12, 1) = -3*A*L*rho*yc/20
-   M(12, 2) = -3*A*L*rho*xc/20
-   M(12, 3) = 0
-   M(12, 4) = A*L**2*rho*xc/30
-   M(12, 5) = -A*L**2*rho*yc/30
-   M(12, 6) = Jz*L*rho/6
-   M(12, 7) = -7*A*L*rho*yc/20
-   M(12, 8) = -7*A*L*rho*xc/20
-   M(12, 9) = 0
-   M(12, 10) = -A*L**2*rho*xc/20
-   M(12, 11) = A*L**2*rho*yc/20
-   M(12, 12) = Jz*L*rho/3
+   ErrMsg  = ""
+   ErrStat = ErrID_None
+   
+   xc = 0.0            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
+   yc = 0.0            ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
+   
+   ! Initialize matrices
+   Y1 = 0.0_ReKi
+   Y2 = 0.0_ReKi
+   Q = 0.0_ReKi
+   P = 0.0_ReKi
+   N = 0.0_ReKi
+   dN = 0.0_ReKi
+   N1 = 0.0_ReKi
+   N2 = 0.0_ReKi
+   Aa1 = 0.0_ReKi
+   Aa2 = 0.0_ReKi
+   Gp = 0.0_ReKi
+   Wp = 0.0_ReKi
+   Ms = 0.0_ReKi
+   I6 = 0.0_ReKi
+   B0 = 0.0_ReKi
+   B = 0.0_ReKi
+   D = 0.0_ReKi
+   M_a = 0.0_ReKi
+   
+   ! Establish cross-sectional mass matrix
+   Ms(1, 1) = A * rho
+   Ms(1, 6) = - A * rho * yc
+   Ms(2, 2) = A * rho
+   Ms(2, 6) = A * rho * xc
+   Ms(3, 3) = A * rho
+   Ms(3, 4) = A * rho * yc
+   Ms(3, 5) = - A * rho * xc
+   Ms(4, 3) = A * rho * yc
+   Ms(4, 4) = Jx * rho
+   Ms(4, 5) = - Jxy * rho
+   Ms(5, 3) = - A * rho * xc
+   Ms(5, 4) = - Jxy * rho
+   Ms(5, 5) = Jy * rho
+   Ms(6, 1) = - A * rho * yc
+   Ms(6, 2) = A * rho * xc
+   Ms(6, 6) = (Jx + Jy) * rho
+   
+   ! Establish cross-sectional stiffness matrix
+   Ks(1, 1) = Ax*G
+   Ks(1, 2) = -Axy*G
+   Ks(1, 6) = -Ax*G*ys - Axy*G*xs
+   Ks(2, 1) = -Axy*G
+   Ks(2, 2) = Ay*G
+   Ks(2, 6) = Axy*G*ys + Ay*G*xs
+   Ks(3, 3) = A*E
+   Ks(3, 4) = A*E*yc
+   Ks(3, 5) = -A*E*xc
+   Ks(4, 3) = A*E*yc
+   Ks(4, 4) = A*E*yc**2 + E*Jx
+   Ks(4, 5) = -A*E*xc*yc - E*Jxy
+   Ks(5, 3) = -A*E*xc
+   Ks(5, 4) = -A*E*xc*yc - E*Jxy
+   Ks(5, 5) = A*E*xc**2 + E*Jy
+   Ks(6, 1) = -Ax*G*ys - Axy*G*xs
+   Ks(6, 2) = Axy*G*ys + Ay*G*xs
+   Ks(6, 6) = Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz
+      
+   ! Establish auxillary matrices
+   FORALL(I = 1:6) I6(I,I) = 1.0_ReKi     ! Get identity matrix
+   
+   B0(1, 5) = -1.0_ReKi
+   B0(2, 4) = 1.0_ReKi
+   
+   N1(1:6, 1:6) = I6
+   N1(7:12, 1:6) = I6
+   N1(7:12, 7:12) = I6 * L
+   
+   N2(7:12, 1:6) = I6 * L**2.0_ReKi
+   N2(7:12, 7:12) = I6 * L**3.0_ReKi
+   N2(7:12, 13:18) = I6 * L**4.0_ReKi
+   N2(7:12, 19:24) = I6 * L**5.0_ReKi
+   
+   Aa1(1:6, 1:6) = I6
+   Aa1(7:12, 7:12) = I6
+   
+   Aa2(13:18, 1:6) = I6
+   Aa2(19:24, 7:12) = I6
+   Aa2(25:30, 13:18) = I6
+   Aa2(31:36, 19:24) = I6
+   
+   N1_inv = N1
+   CALL LAPACK_DGETRF( 12, 12, N1_inv, IPIV, ErrStat, ErrMsg )
+   CALL LAPACK_getri(12, N1_inv, IPIV, WORK, 12, ErrStat, ErrMsg)
+   
+   Y1 = MATMUL(Aa1, N1_inv)
+   Y2 = Aa2 - MATMUL(MATMUL(Aa1, N1_inv), N2)
+
+   ! Establish Gauss-points and its weighting factors (5 points)
+   Gp(1) = 0.0337652428984 * L
+   Gp(2) = 0.169395306767 * L
+   Gp(3) = 0.380690406958 * L
+   Gp(4) = 0.619309593042 * L
+   Gp(5) = 0.830604693233 * L
+   Gp(6) = 0.966234757102 * L
+   
+   Wp(1) = 0.0856622461896 * L
+   Wp(2) = 0.180380786524 * L
+   Wp(3) = 0.233956967286 * L
+   Wp(4) = 0.233956967286 * L
+   Wp(5) = 0.180380786524 * L
+   Wp(6) = 0.0856622461896 * L
+   
+   
+   DO i = 1, 6
+      ! Polynomial matrix
+      N(1:6, 1:6) = I6
+      N(1:6, 7:12) = I6 * Gp(i)
+      N(1:6, 13:18) = I6 * Gp(i)**2
+      N(1:6, 19:24) = I6 * Gp(i)**3
+      N(1:6, 25:30) = I6 * Gp(i)**4
+      N(1:6, 31:36) = I6 * Gp(i)**5
+      
+      ! Derivative of polynomial matrix
+      dN(1:6, 7:12) = I6
+      dN(1:6, 13:18) = I6 * 2_ReKi * Gp(i)
+      dN(1:6, 19:24) = I6 * 3_ReKi * Gp(i)**2_ReKi
+      dN(1:6, 25:30) = I6 * 4_ReKi * Gp(i)**3_ReKi
+      dN(1:6, 31:36) = I6 * 5_ReKi * Gp(i)**4_ReKi
+      
+      B = MATMUL(B0, N) + dN
+   
+      D = D + MATMUL(MATMUL(TRANSPOSE(B), Ks), B) * Wp(i) 
+   ENDDO
+   
+   P = MATMUL(MATMUL(TRANSPOSE(Y2), D), Y1)
+   Q = -MATMUL(MATMUL(TRANSPOSE(Y2), D), Y2)
+   
+   Q_inv = Q
+   CALL LAPACK_DGETRF( 24, 24, Q_inv, IPIV, ErrStat, ErrMsg )
+   CALL LAPACK_getri(24, Q_inv, IPIV, WORK, 24, ErrStat, ErrMsg)
+   
+   N_a = Y1 + MATMUL(MATMUL(Y2, Q_inv), P)
+
+   DO i = 1, 6
+      ! Polynomial matrix
+      N(1:6, 1:6) = I6
+      N(1:6, 7:12) = I6 * Gp(i)
+      N(1:6, 13:18) = I6 * Gp(i)**2
+      N(1:6, 19:24) = I6 * Gp(i)**3
+      N(1:6, 25:30) = I6 * Gp(i)**4
+      N(1:6, 31:36) = I6 * Gp(i)**5
+      
+      M_a = M_a + MATMUL(MATMUL(TRANSPOSE(N), Ms), N) * Wp(I)
+   ENDDO
+   
+   M = MATMUL(MATMUL(TRANSPOSE(N_a), M_a), N_a)
    
    DC = 0
    DC( 1: 3,  1: 3) = DirCos
@@ -1575,26 +1759,13 @@ SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, rho, DirCos, M)
    
    M = MATMUL( MATMUL(DC, M), TRANSPOSE(DC) )
    
-   !WRITE(*,*) "M : "
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(1, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(2, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(3, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(4, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(5, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(6, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(7, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(8, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(9, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(10, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(11, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') M(12, 1:12)
+   !WRITE(*,*) "M :"
+   !WRITE(*, '(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3)') ((M(i, ii), ii = 1, 12), i = 1, 12)
 
-   !WRITE(*,*) "K - TRANSPOSE(K): "
+   !WRITE(*,*) "M - TRANSPOSE(M): "
    !write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') M - TRANSPOSE(M)
 
 END SUBROUTINE ElemM
-
-
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 

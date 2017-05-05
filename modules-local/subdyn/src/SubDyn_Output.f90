@@ -3920,15 +3920,17 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
             IF (M(2) .EQ. p%MoutLst(I)%NodeIDs(J) ) p%MoutLst(I)%ElmNds(J,K2)=2 !store whether first or second node of element  
 
             !Calculate Ke, Me to be used for output
-            CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
-            p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%axx, p%elemprops(L)%ayy, p%elemprops(L)%axy, &
-            p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE, p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst(I)%Ke(:,:,J,K2), ErrStat, ErrMsg )
+            CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Jx, p%elemprops(L)%Jy, p%elemprops(L)%Jxy, &
+                              p%elemprops(L)%Jz, p%elemprops(L)%Ax, p%elemprops(L)%Ay, &
+                              p%elemprops(L)%Axy, p%elemprops(L)%xs, p%elemprops(L)%ys, p%elemprops(L)%YoungE,  & 
+                              p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst(I)%Ke(:,:,J,K2), ErrStat, ErrMsg )
             IF ( ErrStat/= 0 ) THEN
                ErrStat = ErrID_Fatal
                RETURN
             END IF
-            CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
-            p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst(I)%Me(:,:,J,K2) )   
+            CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Jx, p%elemprops(L)%Jy, p%elemprops(L)%Jxy,&
+                              p%elemprops(L)%Jz, p%elemprops(L)%Ax, p%elemprops(L)%Ay, p%elemprops(L)%Axy, p%elemprops(L)%xs, &
+                              p%elemprops(L)%ys,  p%elemprops(L)%rho,  p%elemprops(L)%YoungE,  p%elemprops(L)%ShearG,  p%elemprops(L)%DirCos, p%MoutLst(I)%Me(:,:,J,K2), ErrStat, ErrMsg )   
                 
                 CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho, p%elemprops(L)%DirCos, p%MoutLst(I)%Fg(:,J,K2), Init%g )
          END IF    
@@ -3991,18 +3993,18 @@ p%OutAllDims=12*p%Nmembers*2    !size of AllOut Member Joint forces
                   IF (M(2) .EQ. p%MoutLst2(I)%NodeIDs(J) ) p%MoutLst2(I)%ElmNd2s(K2)=2 !store whether first or second node of element  
                         
                   !Calculate Ke, Me to be used for output
-                  CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
-                              p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%axx, p%elemprops(L)%ayy, &
-                              p%elemprops(L)%axy, p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE,  & 
+                  CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Jx, p%elemprops(L)%Jy, p%elemprops(L)%Jxy, &
+                              p%elemprops(L)%Jz, p%elemprops(L)%Ax, p%elemprops(L)%Ay, &
+                              p%elemprops(L)%Axy, p%elemprops(L)%xs, p%elemprops(L)%ys, p%elemprops(L)%YoungE,  & 
                               p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst2(I)%Ke2(:,:,K2), ErrStat, ErrMsg  )
                   IF ( ErrStat/= 0 ) THEN
                      ErrStat = ErrID_Fatal
                      RETURN
                   END IF
-                  CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy,&
-                              p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst2(I)%Me2(:,:,K2) )      
+                  CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Jx, p%elemprops(L)%Jy, p%elemprops(L)%Jxy,&
+                              p%elemprops(L)%Jz, p%elemprops(L)%Ax, p%elemprops(L)%Ay, p%elemprops(L)%Axy, p%elemprops(L)%xs, &
+                              p%elemprops(L)%ys,  p%elemprops(L)%rho,  p%elemprops(L)%YoungE,  p%elemprops(L)%ShearG,  p%elemprops(L)%DirCos, p%MoutLst2(I)%Me2(:,:,K2), ErrStat, ErrMsg )      
                   CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho, p%elemprops(L)%DirCos, p%MoutLst2(I)%Fg2(:,K2), Init%g )
-                   
                   EXIT   !We found the element for that node, exit loop on elements
               ENDIF
               
@@ -4102,16 +4104,17 @@ ENDDO
               IF (M(2) .EQ. p%MoutLst3(I)%Noutcnt ) p%MoutLst3(I)%ElmNds(1,K)=2 !store whether first or second node of element  
              
               !Calculate Ke, Me to be used for output
-              CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy, &
-                              p%elemprops(L)%Jzz, p%elemprops(L)%Shear, p%elemprops(L)%axx, p%elemprops(L)%ayy, &
-                              p%elemprops(L)%axy, p%elemprops(L)%azx, p%elemprops(L)%azy, p%elemprops(L)%YoungE,  & 
+              CALL ElemK( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Jx, p%elemprops(L)%Jy, p%elemprops(L)%Jxy, &
+                              p%elemprops(L)%Jz, p%elemprops(L)%Ax, p%elemprops(L)%Ay, &
+                              p%elemprops(L)%Axy, p%elemprops(L)%xs, p%elemprops(L)%ys, p%elemprops(L)%YoungE,  & 
                               p%elemprops(L)%ShearG, p%elemprops(L)%DirCos, p%MoutLst3(I)%Ke(:,:,1,K), ErrStat, ErrMsg  )
               IF ( ErrStat/= 0 ) THEN
                  ErrStat = ErrID_Fatal
                  RETURN
               END IF
-              CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Ixx, p%elemprops(L)%Iyy, p%elemprops(L)%Ixy,&
-                              p%elemprops(L)%Jzz,  p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Me(:,:,1,K) )   
+              CALL ElemM( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%Jx, p%elemprops(L)%Jy, p%elemprops(L)%Jxy,&
+                              p%elemprops(L)%Jz, p%elemprops(L)%Ax, p%elemprops(L)%Ay, p%elemprops(L)%Axy, p%elemprops(L)%xs, &
+                              p%elemprops(L)%ys,  p%elemprops(L)%rho,  p%elemprops(L)%YoungE,  p%elemprops(L)%ShearG,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Me(:,:,1,K), ErrStat, ErrMsg )   
               CALL ElemG( p%elemprops(L)%Area, p%elemprops(L)%Length, p%elemprops(L)%rho,  p%elemprops(L)%DirCos, p%MoutLst3(I)%Fg(:,1,K), Init%g )   
               
              
