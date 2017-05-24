@@ -1579,8 +1579,8 @@ END IF
 
    ! number of property sets
 CALL ReadIVar ( UnIn, SDInputFile, Init%NPropSets, 'NPropSets', 'Number of property sets',ErrStat, ErrMsg, UnEc  )
-IF ( ErrStat /= ErrID_None .OR. Init%NPropSets < 1 )  THEN
-   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NPropSets must be >0'  !-RRD changed text
+IF ( ErrStat /= ErrID_None .OR. Init%NPropSets < 0 )  THEN
+   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NPropSets must be >= 0'  !-AS changed text
    ErrStat = ErrID_Fatal
    CALL CleanUp()
    RETURN
@@ -1639,11 +1639,21 @@ END IF
 
    ! number of property sets
 CALL ReadIVar ( UnIn, SDInputFile, Init%NXPropSets, 'NXPropSets', 'Number of non-circular property sets',ErrStat, ErrMsg, UnEc  ) !-RRD changed text
-IF ( ErrStat /= ErrID_None .OR. Init%NXPropSets < 0 )  THEN                                                                     !-RRD changed NPropSets to NXPropsets
-   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NXPropSets must be >=0' !-RRD changed text
-   ErrStat = ErrID_Fatal
-   CALL CleanUp()
-   RETURN
+! bas: check if NXPropSets or NPropSets is > 0 because one XPropSet could be sufficient now.
+IF ( ErrStat /= ErrID_None .OR. Init%NXPropSets < 0 .OR. (Init%NPropSets == 0 .AND. Init%NXPropSets == 0) )  THEN                                                                     !-RRD changed NPropSets to NXPropsets
+   IF (ErrStat /= ErrID_None .OR. Init%NXPropSets < 0) THEN
+      ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NXPropSets must be >= 0' !-AS changed text
+      ErrStat = ErrID_Fatal
+      CALL CleanUp()
+      RETURN
+   ENDIF
+   IF (Init%NPropSets == 0 .AND. Init%NXPropSets == 0) THEN
+      ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': One of NXPropSets or NPropSets must be > 0' !-AS changed text
+      ErrStat = ErrID_Fatal
+      CALL CleanUp()
+      RETURN
+   ENDIF
+   
 ENDIF
 
    ! Skip two lines 

@@ -783,7 +783,6 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    
       ! loop over all elements
    DO I = 1, Init%NElem
-   
       DO J = 1, NNE
          NN(J) = p%Elems(I, J + 1)
       ENDDO
@@ -985,6 +984,7 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
    ErrMsg  = ""
    ErrStat = ErrID_None
    
+   
    ! calculate point distances
    Dy=Y2-Y1
    Dx=X2-X1
@@ -1110,6 +1110,12 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
           
       ! case member z_e axis is parallel to global SS-XY-plane
       ELSEIF ( EqualRealNos(ke_hat(3), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi)) THEN
+         IF ( ke_hat(1) * PA(1) - ke_hat(1) * PS(1) + ke_hat(2) * PA(2) - ke_hat(2) * PS(2) ) == 0) THEN
+            ! This is a special case where the denominator becomes zero due to the coordinates chosen for the point A. 
+            ! This happens if point A lies already on the plane where it should be projected to.
+            ! Therefore point A will be shifted along a line parallel to ke_hat.         
+            PA = PA + ke_hat
+         ENDIF
          ! calculate lambda
          lambda = ( ke_hat(1)**2.0_ReKi + ke_hat(2)**2.0_ReKi) / ( ke_hat(1) * PA(1) - ke_hat(1) * PS(1) &
                     + ke_hat(2) * PA(2) - ke_hat(2) * PS(2) )
@@ -1118,10 +1124,18 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
          
       ! case member z_e axis is not parallel to global SS-X-Y-Z axes (implies that neither ke_hat(1), ke_hat(2) and ke_hat(3) is 0)
       ELSE
+         IF (( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) ) == 0) THEN
+            ! This is a special case where the denominator becomes zero due to the coordinates chosen for the point A. 
+            ! This happens if point A lies already on the plane where it should be projected to.
+            ! Therefore point A will be shifted along a line parallel to ke_hat.         
+            PA = PA + ke_hat
+         ENDIF
+        
          ! calculate lambda
          lambda = ( ke_hat(3) +  ke_hat(1)**2.0_ReKi / ke_hat(3) + ke_hat(2)**2.0_ReKi / ke_hat(3)) &
                  / ( PA(3) + ( PA(1) * ke_hat(1) ) / ke_hat(3) + ( PA(2) * ke_hat(2) ) / ke_hat(3) &
                  - PS(3) - ( PS(1) * ke_hat(1) ) / ke_hat(3) - ( PS(2) * ke_hat(2) ) / ke_hat(3) )
+
          ! calculate projected point PAp
          PAp = PA - 1 / lambda * ke_hat
       ENDIF
@@ -1187,226 +1201,6 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
    ENDIF
 
 END SUBROUTINE GetDirCos
-!------------------------------------------------------------------------------------------------------
-!------------------------------------------------------------------------------------------------------
-
-SUBROUTINE ElemK_old(A, L, Jx, Jy, Jxy, Jz, Shear, axx, ayy, alpha_xy, azx, azy, E, G, DirCos, K, ErrStat, ErrMsg)
-   ! element stiffness matrix according to Schramm, U.; Rubenchik, V. and Pilkey W. D.: "Beam stiffness matrix based on the elasticity equations", International Journal for Numerical Methods in Engineering, Vol. 40, p. 211-232, 1997.
-   ! shear is true  -- non-tapered Timoshenko beam 
-   ! shear is false -- non-tapered Euler-Bernoulli beam 
-
-   REAL(ReKi), INTENT( IN)               :: A, L, Jx, Jy, Jxy, Jz, axx, ayy, alpha_xy, azx, azy, E, G
-   REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
-   LOGICAL, INTENT( IN)                  :: Shear
-   
-   REAL(ReKi), INTENT(OUT)               :: K(12, 12)  !RRD:  Ke and Me  need to be modified if convention of dircos is not followed?
-   
-   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat                 ! Error status of the operation
-   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg                  ! Error message if ErrStat /= ErrID_None
-   
-   REAL(ReKi)                            :: DC(12, 12)  ! direction cosine matrix
-   REAL(ReKi)                            :: Ax, Ay, Axy ! corrected shear areas
-   REAL(ReKi)                            :: xs, ys      ! shear center offset (hard coded)
-   REAL(ReKi)                            :: xc, yc      ! centroid offset (hard coded)
-   
-   ErrMsg  = ""
-   ErrStat = ErrID_None
-   
-   K = 0
-   
-   xs = -0.0199726           ! shear center offset from reference frame in x direction
-   ys = -0.044231            ! shear center offset from reference frame in y direction
-   xc = 0.0                  ! controid offset from reference frame in x direction
-   yc = 0.0                  ! controid offset from reference frame in y direction
-   
-   Ax  = 1/axx * A
-   Ay  = 1/ayy * A
-   Axy = 1/alpha_xy * A
-   
-   !WRITE(*,*) "Jx : ", Jx
-   !WRITE(*,*) "Jy : ", Jy
-   !WRITE(*,*) "Jxy : ", Jxy
-   !WRITE(*,*) "Jz : ", Jz
-   !WRITE(*,*) "G : ", G
-   !WRITE(*,*) "E : ", E
-   !WRITE(*,*) "L : ", L
-   !WRITE(*,*) "A : ", A
-   
-   
-   K(1, 1) = 1.0*Ax*G/L
-   K(1, 2) = -1.0*Axy*G/L
-   K(1, 3) = 0
-   K(1, 4) = 0.5*Axy*G
-   K(1, 5) = 0.5*Ax*G
-   K(1, 6) = 1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(1, 7) = -1.0*Ax*G/L
-   K(1, 8) = 1.0*Axy*G/L
-   K(1, 9) = 0
-   K(1, 10) = 0.5*Axy*G
-   K(1, 11) = 0.5*Ax*G
-   K(1, 12) = -1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(2, 1) = -1.0*Axy*G/L
-   K(2, 2) = 1.0*Ay*G/L
-   K(2, 3) = 0
-   K(2, 4) = -0.5*Ay*G
-   K(2, 5) = -0.5*Axy*G
-   K(2, 6) = 1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(2, 7) = 1.0*Axy*G/L
-   K(2, 8) = -1.0*Ay*G/L
-   K(2, 9) = 0
-   K(2, 10) = -0.5*Ay*G
-   K(2, 11) = -0.5*Axy*G
-   K(2, 12) = -1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(3, 1) = 0
-   K(3, 2) = 0
-   K(3, 3) = 1.0*A*E/L
-   K(3, 4) = 1.0*A*E*yc/L
-   K(3, 5) = -1.0*A*E*xc/L
-   K(3, 6) = 0
-   K(3, 7) = 0
-   K(3, 8) = 0
-   K(3, 9) = -1.0*A*E/L
-   K(3, 10) = -1.0*A*E*yc/L
-   K(3, 11) = 1.0*A*E*xc/L
-   K(3, 12) = 0
-   K(4, 1) = 0.5*Axy*G
-   K(4, 2) = -0.5*Ay*G
-   K(4, 3) = 1.0*A*E*yc/L
-   K(4, 4) = 0.5*L*(0.5*Ay*G + 2.0*(A*E*yc**2 + E*Jx)/L**2)
-   K(4, 5) = 0.5*L*(0.5*Axy*G + 2.0*(-A*E*xc*yc - E*Jxy)/L**2)
-   K(4, 6) = -0.5*Axy*G*ys - 0.5*Ay*G*xs
-   K(4, 7) = -0.5*Axy*G
-   K(4, 8) = 0.5*Ay*G
-   K(4, 9) = -1.0*A*E*yc/L
-   K(4, 10) = 0.5*L*(0.5*Ay*G - 2.0*(A*E*yc**2 + E*Jx)/L**2)
-   K(4, 11) = 0.5*L*(0.5*Axy*G - 2.0*(-A*E*xc*yc - E*Jxy)/L**2)
-   K(4, 12) = 0.5*Axy*G*ys + 0.5*Ay*G*xs
-   K(5, 1) = 0.5*Ax*G
-   K(5, 2) = -0.5*Axy*G
-   K(5, 3) = -1.0*A*E*xc/L
-   K(5, 4) = 0.5*L*(0.5*Axy*G + 2.0*(-2*A*E*xc*yc - E*Jxy)/L**2)
-   K(5, 5) = 0.5*L*(0.5*Ax*G + 2.0*(A*E*xc**2 + E*Jy)/L**2)
-   K(5, 6) = -0.5*Ax*G*ys - 0.5*Axy*G*xs
-   K(5, 7) = -0.5*Ax*G
-   K(5, 8) = 0.5*Axy*G
-   K(5, 9) = 1.0*A*E*xc/L
-   K(5, 10) = 0.5*L*(0.5*Axy*G - 2.0*(-2*A*E*xc*yc - E*Jxy)/L**2)
-   K(5, 11) = 0.5*L*(0.5*Ax*G - 2.0*(A*E*xc**2 + E*Jy)/L**2)
-   K(5, 12) = 0.5*Ax*G*ys + 0.5*Axy*G*xs
-   K(6, 1) = 1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(6, 2) = 1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(6, 3) = 0
-   K(6, 4) = -0.5*Axy*G*ys - 0.5*Ay*G*xs
-   K(6, 5) = -0.5*Ax*G*ys - 0.5*Axy*G*xs
-   K(6, 6) = 1.0*(Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz)/L
-   K(6, 7) = -1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(6, 8) = -1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(6, 9) = 0
-   K(6, 10) = -0.5*Axy*G*ys - 0.5*Ay*G*xs
-   K(6, 11) = -0.5*Ax*G*ys - 0.5*Axy*G*xs
-   K(6, 12) = -1.0*(Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz)/L
-   K(7, 1) = -1.0*Ax*G/L
-   K(7, 2) = 1.0*Axy*G/L
-   K(7, 3) = 0
-   K(7, 4) = -0.5*Axy*G
-   K(7, 5) = -0.5*Ax*G
-   K(7, 6) = -1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(7, 7) = 1.0*Ax*G/L
-   K(7, 8) = -1.0*Axy*G/L
-   K(7, 9) = 0
-   K(7, 10) = -0.5*Axy*G
-   K(7, 11) = -0.5*Ax*G
-   K(7, 12) = 1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(8, 1) = 1.0*Axy*G/L
-   K(8, 2) = -1.0*Ay*G/L
-   K(8, 3) = 0
-   K(8, 4) = 0.5*Ay*G
-   K(8, 5) = 0.5*Axy*G
-   K(8, 6) = -1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(8, 7) = -1.0*Axy*G/L
-   K(8, 8) = 1.0*Ay*G/L
-   K(8, 9) = 0
-   K(8, 10) = 0.5*Ay*G
-   K(8, 11) = 0.5*Axy*G
-   K(8, 12) = 1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(9, 1) = 0
-   K(9, 2) = 0
-   K(9, 3) = -1.0*A*E/L
-   K(9, 4) = -1.0*A*E*yc/L
-   K(9, 5) = 1.0*A*E*xc/L
-   K(9, 6) = 0
-   K(9, 7) = 0
-   K(9, 8) = 0
-   K(9, 9) = 1.0*A*E/L
-   K(9, 10) = 1.0*A*E*yc/L
-   K(9, 11) = -1.0*A*E*xc/L
-   K(9, 12) = 0
-   K(10, 1) = 0.5*Axy*G
-   K(10, 2) = -0.5*Ay*G
-   K(10, 3) = -1.0*A*E*yc/L
-   K(10, 4) = 0.5*L*(0.5*Ay*G - 2.0*(A*E*yc**2 + E*Jx)/L**2)
-   K(10, 5) = 0.5*L*(0.5*Axy*G - 2.0*(-A*E*xc*yc - E*Jxy)/L**2)
-   K(10, 6) = -0.5*Axy*G*ys - 0.5*Ay*G*xs
-   K(10, 7) = -0.5*Axy*G
-   K(10, 8) = 0.5*Ay*G
-   K(10, 9) = 1.0*A*E*yc/L
-   K(10, 10) = 0.5*L*(0.5*Ay*G + 2.0*(A*E*yc**2 + E*Jx)/L**2)
-   K(10, 11) = 0.5*L*(0.5*Axy*G + 2.0*(-A*E*xc*yc - E*Jxy)/L**2)
-   K(10, 12) = 0.5*Axy*G*ys + 0.5*Ay*G*xs
-   K(11, 1) = 0.5*Ax*G
-   K(11, 2) = -0.5*Axy*G
-   K(11, 3) = 1.0*A*E*xc/L
-   K(11, 4) = 0.5*L*(0.5*Axy*G - 2.0*(-2*A*E*xc*yc - E*Jxy)/L**2)
-   K(11, 5) = 0.5*L*(0.5*Ax*G - 2.0*(A*E*xc**2 + E*Jy)/L**2)
-   K(11, 6) = -0.5*Ax*G*ys - 0.5*Axy*G*xs
-   K(11, 7) = -0.5*Ax*G
-   K(11, 8) = 0.5*Axy*G
-   K(11, 9) = -1.0*A*E*xc/L
-   K(11, 10) = 0.5*L*(0.5*Axy*G + 2.0*(-2*A*E*xc*yc - E*Jxy)/L**2)
-   K(11, 11) = 0.5*L*(0.5*Ax*G + 2.0*(A*E*xc**2 + E*Jy)/L**2)
-   K(11, 12) = 0.5*Ax*G*ys + 0.5*Axy*G*xs
-   K(12, 1) = -1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(12, 2) = -1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(12, 3) = 0
-   K(12, 4) = 0.5*Axy*G*ys + 0.5*Ay*G*xs
-   K(12, 5) = 0.5*Ax*G*ys + 0.5*Axy*G*xs
-   K(12, 6) = -1.0*(Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz)/L
-   K(12, 7) = 1.0*(-Ax*G*ys - Axy*G*xs)/L
-   K(12, 8) = 1.0*(Axy*G*ys + Ay*G*xs)/L
-   K(12, 9) = 0
-   K(12, 10) = 0.5*Axy*G*ys + 0.5*Ay*G*xs
-   K(12, 11) = 0.5*Ax*G*ys + 0.5*Axy*G*xs
-   K(12, 12) = 1.0*(Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz)/L
-
-
-   
-   !WRITE(*,*) "K : "
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(1, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(2, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(3, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(4, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(5, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(6, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(7, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(8, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(9, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(10, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(11, 1:12)
-   !write(*, '(144(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3))') K(12, 1:12)
-   
-   DC = 0
-   DC( 1: 3,  1: 3) = DirCos
-   DC( 4: 6,  4: 6) = DirCos
-   DC( 7: 9,  7: 9) = DirCos
-   DC(10:12, 10:12) = DirCos
-   
-   K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
-   
-   WRITE(*,*) "K - TRANSPOSE(K): "
-   write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') K - TRANSPOSE(K)
-
-   
-END SUBROUTINE ElemK_old
 
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
@@ -1436,8 +1230,10 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, Er
    ErrMsg  = ""
    ErrStat = ErrID_None
      
+   !xc = 1.99726E-2            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
+   !yc = 4.4231E-2             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
    xc = 0.0            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
-   yc = 0.0            ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
+   yc = 0.0             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
    
    ! Initialize matrices
    Y1 = 0.0_ReKi
@@ -1563,11 +1359,17 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, Er
    
    K = MATMUL( MATMUL(DC, K), TRANSPOSE(DC) )
    
+   !WRITE(*,*) "Ks :"
+   !WRITE(*, '(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3)') ((Ks(i, ii), ii = 1, 6), i = 1, 6)   
+   
    !WRITE(*,*) "K :"
    !WRITE(*, '(E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3,E15.3)') ((K(i, ii), ii = 1, 12), i = 1, 12)
 
    !WRITE(*,*) "K - TRANSPOSE(K): "
    !write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') K - TRANSPOSE(K)
+   
+   !WRITE(*,*) "Ks - TRANSPOSE(Ks): "
+   !write(*, '(144(E15.6,E15.6,E15.6,E15.6,E15.6,E15.6))') Ks - TRANSPOSE(Ks)
 
 END SUBROUTINE ElemK
 !------------------------------------------------------------------------------------------------------
@@ -1600,8 +1402,10 @@ SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, 
    ErrMsg  = ""
    ErrStat = ErrID_None
    
+   !xc = 1.99726E-2            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
+   !yc = 4.4231E-2             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
    xc = 0.0            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
-   yc = 0.0            ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
+   yc = 0.0             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
    
    ! Initialize matrices
    Y1 = 0.0_ReKi
