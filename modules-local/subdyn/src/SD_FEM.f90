@@ -781,7 +781,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    Init%M = 0.0_ReKi
    Init%FG = 0.0_ReKi 
    
-      ! loop over all elements
+   ! loop over all elements
    DO I = 1, Init%NElem
       DO J = 1, NNE
          NN(J) = p%Elems(I, J + 1)
@@ -796,7 +796,7 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
       ! search for current MemberID
       DO J = 1, p%NMembers
          DO K = 1, Init%NDiv
-            IF ( Init%MemberElements(J, K) == I ) THEN
+            IF ( Init%MemberElements(J, K + 1) == I ) THEN
                MID = Init%MemberElements(J, 1)
             ENDIF
          
@@ -1088,7 +1088,7 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
          ENDIF     
 
       ENDIF
-      
+
       !! calculate projected point PAp for different cases
       ! case member z_e axis is parallel to global SS-X-axis
       IF ( EqualRealNos(ke_hat(2), 0.0_ReKi) .AND. EqualRealNos(ke_hat(3), 0.0_ReKi) ) THEN
@@ -1110,7 +1110,7 @@ SUBROUTINE GetDirCos(Init, p, X1, Y1, Z1, X2, Y2, Z2, MID, DirCos, Le, psi, ErrS
           
       ! case member z_e axis is parallel to global SS-XY-plane
       ELSEIF ( EqualRealNos(ke_hat(3), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(1), 0.0_ReKi) .AND. .NOT. EqualRealNos(ke_hat(2), 0.0_ReKi)) THEN
-         IF ( ke_hat(1) * PA(1) - ke_hat(1) * PS(1) + ke_hat(2) * PA(2) - ke_hat(2) * PS(2) ) == 0) THEN
+         IF (( ke_hat(1) * PA(1) - ke_hat(1) * PS(1) + ke_hat(2) * PA(2) - ke_hat(2) * PS(2) ) == 0) THEN
             ! This is a special case where the denominator becomes zero due to the coordinates chosen for the point A. 
             ! This happens if point A lies already on the plane where it should be projected to.
             ! Therefore point A will be shifted along a line parallel to ke_hat.         
