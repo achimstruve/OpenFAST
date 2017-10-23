@@ -89,7 +89,7 @@ PROGRAM TestSubDyn
    REAL(DbKi)                                         :: TMax
    REAL(DbKi)                                         :: OutTime              ! Used to determine if output should be generated at this simulation time
    REAL(ReKi)                                         :: PrevClockTime        ! Clock time at start of simulation in seconds
-   REAL                                               :: UsrTime1             ! User CPU time for simulation initialization
+   REAL(ReKi)                                         :: UsrTime1             ! User CPU time for simulation initialization
    INTEGER                                            :: StrtTime (8)         ! Start time of simulation
    
    !...............................................................................................................................
@@ -225,9 +225,9 @@ PROGRAM TestSubDyn
    ! u(1)%UFL(3)=-12.958  !this is for testbeam3
     
    call wrscr('')
-   DO n = 0,drvrInitInp%NSteps
+   DO n = 1,drvrInitInp%NSteps
 
-      Time = n*TimeInterval
+      Time = (n-1) * TimeInterval
       InputTime(1) = Time
 
          ! Modify u (likely from the outputs of another module or a set of test conditions) here:
@@ -244,17 +244,15 @@ PROGRAM TestSubDyn
          u(1)%LMesh%Moment (:,:) = 0.0
          
          IF ( drvrInitInp%InputsMod == 2 ) THEN
-            
-            
-            
+         
             u(1)%TPMesh%TranslationDisp(:,1)   = SDin(n,2:4) 
             
             
                ! Compute direction cosine matrix from the rotation angles
                
-            IF ( abs(SDin(n,5)) > maxAngle ) maxAngle = abs(SDin(n,5))
-            IF ( abs(SDin(n,6)) > maxAngle ) maxAngle = abs(SDin(n,6))
-            IF ( abs(SDin(n,7)) > maxAngle ) maxAngle = abs(SDin(n,7))
+            !IF ( abs(SDin(n,5)) > maxAngle ) maxAngle = abs(SDin(n,5))
+            !IF ( abs(SDin(n,6)) > maxAngle ) maxAngle = abs(SDin(n,6))
+            !IF ( abs(SDin(n,7)) > maxAngle ) maxAngle = abs(SDin(n,7))
             
             CALL SmllRotTrans( 'InputRotation', REAL(SDin(n,5),reki), REAL(SDin(n,6),reki), REAL(SDin(n,7),reki), dcm, 'Junk', ErrStat, ErrMsg )            
             u(1)%TPMesh%Orientation(:,:,1)     = dcm 
