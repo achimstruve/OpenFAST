@@ -1038,9 +1038,10 @@ INTEGER(IntKi)               :: UnEc    !Echo file ID
 
 REAL(ReKi),PARAMETER        :: WrongNo=-9999.   ! Placeholder value for bad(old) values in JDampings
 
-INTEGER(IntKi)               :: I, J, flg, K
+INTEGER(IntKi)               :: I, J, K, flg
 REAL(ReKi)                   :: Dummy_ReAry(SDMaxInpCols) 
 INTEGER(IntKi)               :: Dummy_IntAry(SDMaxInpCols)
+INTEGER(IntKi)               :: Dummy_Int
 
 UnEc = -1 
 Echo = .FALSE.
@@ -1565,11 +1566,11 @@ DO I = 1, p%NMembers
       
 ENDDO
 
-!------------------ MEMBER X-SECTION PROPERTY data 1/2 [isotropic material for now: use this table if circular-tubular elements ------------------------
+!------------------ MEMBER X-SECTION PROPERTY data 1/3 [isotropic material: use this table for circular-tubular elements] ------------------------
 
    ! Skip the comment line.
 
-CALL ReadCom( UnIn, SDInputFile, ' Member X-Section Property Data 1/2 ',ErrStat, ErrMsg, UnEc  )
+CALL ReadCom( UnIn, SDInputFile, ' Member X-Section Property Data 1/3 ',ErrStat, ErrMsg, UnEc  )
 
 IF ( ErrStat /= ErrID_None ) THEN
    ErrStat = ErrID_Fatal
@@ -1589,7 +1590,7 @@ ENDIF
    ! Skip two lines
 JunkStrg='Headers'
 DO I = 1, 2
-    CALL ReadCom( UnIn, SDInputFile, ' Property Data 1/2 '//TRIM(JunkStrg),ErrStat, ErrMsg, UnEc  )!-RRD changed text
+    CALL ReadCom( UnIn, SDInputFile, ' Property Data 1/3 '//TRIM(JunkStrg),ErrStat, ErrMsg, UnEc  )!-AS changed text
     IF ( ErrStat /= ErrID_None ) THEN
       ErrStat = ErrID_Fatal
       CALL CleanUp()
@@ -1621,15 +1622,26 @@ DO I = 1, Init%NPropSets
       CALL CleanUp()
       RETURN
    END IF   
-   
-ENDDO   
+ENDDO
 
-!------------------ MEMBER X-SECTION PROPERTY data 2/2 [isotropic material for now: use this table if any section other than circular, however provide COSM(i,j) below) ------------------------
+!bas, check if this PropSetIDs is eual to another PropSetID
+DO I = 1, Init%NPropSets
+   DO K = 1, Init%NPropSets
+        IF ((I /= K) .AND. ((Init%PropSets(I,1) == Init%PropSets(K,1)))) THEN
+            ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each PropSetID should be set uniquely.'
+            ErrStat = ErrID_Fatal
+            CALL CleanUp()
+            RETURN
+       ENDIF
+   ENDDO
+ENDDO
+
+!------------------ MEMBER X-SECTION PROPERTY data 2/3 [use this table if any section other than circular or anisotropic material and providing engineering constants] ------------------------
 
 
    ! Skip the comment line.
 
-CALL ReadCom( UnIn, SDInputFile, ' Member X-Section Property Data 2/2 ',ErrStat, ErrMsg, UnEc )!-RRD changed description
+CALL ReadCom( UnIn, SDInputFile, ' Member X-Section Property Data 2/3 ',ErrStat, ErrMsg, UnEc )!-AS changed description
 
 IF ( ErrStat /= ErrID_None ) THEN
    ErrStat = ErrID_Fatal
@@ -1638,28 +1650,19 @@ IF ( ErrStat /= ErrID_None ) THEN
 END IF
 
    ! number of property sets
-CALL ReadIVar ( UnIn, SDInputFile, Init%NXPropSets, 'NXPropSets', 'Number of non-circular property sets',ErrStat, ErrMsg, UnEc  ) !-RRD changed text
-! bas: check if NXPropSets or NPropSets is > 0 because one XPropSet could be sufficient now.
-IF ( ErrStat /= ErrID_None .OR. Init%NXPropSets < 0 .OR. (Init%NPropSets == 0 .AND. Init%NXPropSets == 0) )  THEN                                                                     !-RRD changed NPropSets to NXPropsets
-   IF (ErrStat /= ErrID_None .OR. Init%NXPropSets < 0) THEN
-      ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NXPropSets must be >= 0' !-AS changed text
-      ErrStat = ErrID_Fatal
-      CALL CleanUp()
-      RETURN
-   ENDIF
-   IF (Init%NPropSets == 0 .AND. Init%NXPropSets == 0) THEN
-      ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': One of NXPropSets or NPropSets must be > 0' !-AS changed text
-      ErrStat = ErrID_Fatal
-      CALL CleanUp()
-      RETURN
-   ENDIF
-   
-ENDIF
+CALL ReadIVar ( UnIn, SDInputFile, Init%NXPropSets, 'NXPropSets', 'Number of structurally unique arbitrary cross sections defined by engineering constants',ErrStat, ErrMsg, UnEc  ) !-AS changed text
+IF (ErrStat /= ErrID_None .OR. Init%NXPropSets < 0) THEN
+    ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NXPropSets must be >= 0' !-AS changed text
+    ErrStat = ErrID_Fatal
+    CALL CleanUp()
+    RETURN
+ENDIF   
+
 
    ! Skip two lines 
 JunkStrg='Headers'
 DO I = 1, 2
-    CALL ReadCom( UnIn, SDInputFile, ' Property Data 2/2 '//TRIM(JunkStrg),ErrStat, ErrMsg, UnEc  )
+    CALL ReadCom( UnIn, SDInputFile, ' Property Data 2/3 '//TRIM(JunkStrg),ErrStat, ErrMsg, UnEc  )
     IF ( ErrStat /= ErrID_None ) THEN
         ErrStat = ErrID_Fatal
         CALL CleanUp()
@@ -1690,18 +1693,146 @@ DO I = 1, Init%NXPropSets
       CALL CleanUp()
       RETURN
    END IF
-   
-   !bas, check if current XPropSetID is equal to one of the PropSetIDs
-   DO J = 1, Init%NPropSets
-      IF (Init%XPropSets(I,1) == Init%PropSets(J,1)) THEN
-         ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each PropSetID should be set uniquely. Non-circular cross-sections must have different IDs than circular cross-sections.'
-         ErrStat = ErrID_Fatal
-         CALL CleanUp()
-         RETURN
-      ENDIF
-   ENDDO
-      
 ENDDO
+
+!bas, check if this XPropSetIDs is eual to another XPropSetID
+DO I = 1, Init%NXPropSets
+   DO K = 1, Init%NXPropSets
+        IF ((I /= K) .AND. ((Init%XPropSets(I,1) == Init%XPropSets(K,1)))) THEN
+            ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each XPropSetID should be set uniquely.'
+            ErrStat = ErrID_Fatal
+            CALL CleanUp()
+            RETURN
+       ENDIF
+   ENDDO
+ENDDO
+
+!------------------ MEMBER X-SECTION PROPERTY data 3/3 [use this table if any section other than circular or anisotropic material and providing full cross sectional stiffnes and mass matrices] ------------------------
+
+
+   ! Skip the comment line.
+
+CALL ReadCom( UnIn, SDInputFile, ' Member X-Section Property Data 3/3 ',ErrStat, ErrMsg, UnEc )!-AS changed description
+
+IF ( ErrStat /= ErrID_None ) THEN
+   ErrStat = ErrID_Fatal
+   CALL CleanUp()
+   RETURN
+END IF
+
+   ! number of property sets
+CALL ReadIVar ( UnIn, SDInputFile, Init%NXFSMPropSets, 'NXFSMPropSets', 'Number of structurally unique arbitrary cross sections defined by full cross sectional stiffness and mass matrices',ErrStat, ErrMsg, UnEc  ) !-AS changed text
+! bas: check if NXFSMPropSets or NXPropSets or NPropSets is > 0 because one at least one property set must be given.
+IF ( ErrStat /= ErrID_None .OR. Init%NXFSMPropSets < 0 .OR. (Init%NPropSets == 0 .AND. Init%NXPropSets == 0 .AND. Init%NXFSMPropSets == 0) )  THEN
+   IF (ErrStat /= ErrID_None .OR. Init%NXFSMPropSets < 0) THEN
+      ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': NXFSMPropSets must be >= 0' !-AS changed text
+      ErrStat = ErrID_Fatal
+      CALL CleanUp()
+      RETURN
+   ENDIF
+   IF (Init%NPropSets == 0 .AND. Init%NXPropSets == 0 .AND. Init%NXFSMPropSets == 0) THEN
+      ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': One of NXFSMPropSets or NXPropSets or NPropSets must be > 0' !-AS changed text
+      ErrStat = ErrID_Fatal
+      CALL CleanUp()
+      RETURN
+   ENDIF
+   
+ENDIF
+
+   ! Skip two lines 
+JunkStrg='Headers'
+DO I = 1, 2
+    CALL ReadCom( UnIn, SDInputFile, ' Property Data 3/3 '//TRIM(JunkStrg),ErrStat, ErrMsg, UnEc  )
+    IF ( ErrStat /= ErrID_None ) THEN
+        ErrStat = ErrID_Fatal
+        CALL CleanUp()
+        RETURN
+    END IF
+    JunkStrg='Units'
+ENDDO
+
+   
+   ! Property sets value
+ALLOCATE(Init%XFSMPropSets(Init%NXFSMPropSets * XFSMPropSetsRow + Init%NXPropSets * XFSMPropSetsRow + Init%NPropSets * XFSMPropSetsRow, XFSMPropSetsCol), STAT=Sttus) !bas, expanded the allocated array in a way that it is capable to contain later converted properties of property categories 1/3 and 2/3
+   
+IF ( Sttus /= 0 )  THEN
+   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Error allocating XFSMPropSets arrays'
+   ErrStat = ErrID_Fatal
+   CALL CleanUp()
+   RETURN
+ENDIF
+
+JunkStrg='Blank line'
+DO I = 1, Init%NXFSMPropSets
+
+   DO J = 1, XFSMPropSetsRow + 1
+       IF (J == 1) THEN
+       !bas read the propterty ID
+           CALL ReadIVar( UnIn, SDInputFile, Dummy_Int, 'XFSMPropSets', 'XFSMPropSets ID', ErrStat, ErrMsg, UnEc  )
+           Init%XFSMPropSets(1 + (I-1) * XFSMPropSetsRow,1) = Dummy_Int
+           Init%XFSMPropSets(1 + (I-1) * XFSMPropSetsRow,2:) = 0
+   
+           IF ( ErrStat /= ErrID_None ) THEN
+              ErrStat = ErrID_Fatal
+              CALL CleanUp()
+              RETURN
+           END IF
+       END IF
+
+       IF (J == 8) THEN
+       !bas skip for the blank line between the two structural matrices
+            CALL ReadCom( UnIn, SDInputFile, ' Property Data 3/3 '//TRIM(JunkStrg),ErrStat, ErrMsg, UnEc  )
+            IF ( ErrStat /= ErrID_None ) THEN
+                ErrStat = ErrID_Fatal
+                CALL CleanUp()
+                RETURN
+            END IF
+       END IF
+
+       IF ((J /= 1) .AND. (J /= 8)) THEN
+           CALL ReadAry( UnIn, SDInputFile, Dummy_ReAry, XFSMPropSetsCol, 'XFSMPropSets', 'XFSMPropSets values ', ErrStat, ErrMsg, UnEc  )
+           IF (J > 8) THEN
+              Init%XFSMPropSets((I-1) * XFSMPropSetsRow + J - 1,:) = Dummy_ReAry(1:XFSMPropSetsCol)
+           ENDIF
+           IF (J < 8) THEN
+              Init%XFSMPropSets((I-1) * XFSMPropSetsRow + J,:) = Dummy_ReAry(1:XFSMPropSetsCol)
+           ENDIF
+   
+           IF ( ErrStat /= ErrID_None ) THEN
+              ErrStat = ErrID_Fatal
+              CALL CleanUp()
+              RETURN
+           END IF
+       END IF
+   ENDDO
+   !bas, check if this XFSMPropSetIDs is eual to another XFSMPropSetID
+    DO K = 1, Init%NXFSMPropSets + 1
+        IF ((I /= K) .AND. ((Init%XFSMPropSets(1 + (I-1)*XFSMPropSetsRow,1) == Init%XFSMPropSets(1 + (K-1)*XFSMPropSetsRow,1)))) THEN
+            ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each XFSMPropSetID should be set uniquely.'
+            ErrStat = ErrID_Fatal
+            CALL CleanUp()
+            RETURN
+        ENDIF
+    ENDDO
+ENDDO
+
+!bas, check if one of the XFSMPropSetIDs or XPropSetIDs or PropSetIDs is equal to another
+DO K = 1, Init%NXFSMPropSets + 1
+    DO J = 1, Init%NXPropSets
+        DO I = 1, Init%NPropSets
+            IF ((Init%XFSMPropSets(1+(K-1)*XFSMPropSetsRow,1) == Init%XPropSets(J,1)) .OR. (Init%XFSMPropSets(1+(K-1)*XFSMPropSetsRow,1) == Init%PropSets(I,1)) .OR. (Init%XPropSets(J,1) == Init%PropSets(I,1))) THEN
+                ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each PropSetID, XPropSetID, and XFSMPropSetID should be set uniquely.'
+                ErrStat = ErrID_Fatal
+                CALL CleanUp()
+                RETURN
+            ENDIF
+        ENDDO
+    ENDDO
+ENDDO
+
+DO I = 1, Init%NXFSMPropSets * XFSMPropSetsRow
+    WRITE(*,*) Init%XFSMPropSets(I,:)
+ENDDO 
 
 !------------------------ JOINT ADDITIONAL CONCENTRATED MASSES--------------------------
 

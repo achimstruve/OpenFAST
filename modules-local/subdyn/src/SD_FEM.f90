@@ -41,10 +41,12 @@ MODULE SD_FEM
   INTEGER(IntKi),   PARAMETER  :: MembersCol      = MaxNodesPerElem + 8   ! Number of columns in Members (Member-ID,MJointID1,MJointID2,MPropSetID1,MPropSetID2,Orientation,RotAngle,PointAXss,PointAYss,PointAZss)
   INTEGER(IntKi),   PARAMETER  :: PropSetsCol     = 6                     ! Number of columns in PropSets  (PropSetID,YoungE,ShearG,MatDens,XsecD,XsecT)  !bjj: this really doesn't need to store k, does it? or is this supposed to be an ID, in which case we shouldn't be storing k (except new property sets), we should be storing IDs
   INTEGER(IntKi),   PARAMETER  :: XPropSetsCol    = 14                    ! Number of columns in XPropSets (PropSetID,YoungE,ShearG,MatDens,XsecA,Xsecalphaxx,Xsecalphayy,Xsecalphaxy,Xsecalphazx,Xsecalphazy,XsecJxx,XsecJyy,XsecJxy,XsecJ0)
+  INTEGER(IntKi),   PARAMETER  :: XFSMPropSetsCol = 6                     ! Number of columns in XFSMPropSets (each for one structural matrix column)
+  INTEGER(IntKi),   PARAMETER  :: XFSMPropSetsRow = 13                    ! Number of rows in XFSMPropSets (one for the PropSetID 6 for the cross sectional stiffness matrix and 6 for the cross sectional mass matrix)
   INTEGER(IntKi),   PARAMETER  :: COSMsCol        = 10                    ! Number of columns in (cosine matrices) COSMs (COSMID,COSM11,COSM12,COSM13,COSM21,COSM22,COSM23,COSM31,COSM32,COSM33)
   INTEGER(IntKi),   PARAMETER  :: CMassCol        = 5                     ! Number of columns in Concentrated Mass (CMJointID,JMass,JMXX,JMYY,JMZZ)
   
-  INTEGER(IntKi),   PARAMETER  :: SDMaxInpCols    = MAX(JointsCol,ReactCol,InterfCol,MembersCol,PropSetsCol,XPropSetsCol,COSMsCol,CMassCol)
+  INTEGER(IntKi),   PARAMETER  :: SDMaxInpCols    = MAX(JointsCol,ReactCol,InterfCol,MembersCol,PropSetsCol,XPropSetsCol,XFSMPropSetsCol,XFSMPropSetsRow,COSMsCol,CMassCol)
     CONTAINS
     
 SUBROUTINE NodeCon(Init,p, ErrStat, ErrMsg)
