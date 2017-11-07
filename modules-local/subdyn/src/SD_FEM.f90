@@ -544,14 +544,6 @@ ENDIF
 
 Init%Props = TempProps(1:Init%NProp, :)
 
-WRITE(*,*) "New interpolated property sets:"
-DO I = 1, Init%NProp
-    WRITE(*,*) " "
-    DO J = 1, XFSMPropSetsRow
-        WRITE(*, '(6(E15.4))') Init%Props((I-1)*XFSMPropSetsRow + J,:)
-    ENDDO
-ENDDO 
-
 CALL CleanUp_Discrt()
 
 RETURN
@@ -696,20 +688,14 @@ SUBROUTINE ConvertPropSets(Init)
       Jz = 2.0 * Jx
             
       ! calculate kappa, which is for a circular cross-section in each direction the same
-      IF( Init%FEMMod == 1 ) THEN ! uniform Euler-Bernoulli
-          axx = 0
-                     
-      ELSEIF( Init%FEMMod == 3 ) THEN ! uniform Timoshenko
-          ! kappa = 0.53            
+      ! kappa = 0.53            
                
-          ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
-          nu = E / (2.0_ReKi*G) - 1.0_ReKi
-          ratioSq = ( Di / Da )**2
-          kappa =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
-                  / ( ( 1.0 + ratioSq )**2 * ( 7.0 + 14.0*nu + 8.0*nu**2 ) + 4.0 * ratioSq * ( 5.0 + 10.0*nu + 4.0 *nu**2 ) )
-          axx = 1 / kappa
-      ENDIF
-      
+      ! equation 13 (Steinboeck et al) in SubDyn Theory Manual 
+      nu = E / (2.0_ReKi*G) - 1.0_ReKi
+      ratioSq = ( Di / Da )**2
+      kappa =   ( 6.0 * (1.0 + nu) **2 * (1.0 + ratioSq)**2 ) &
+            / ( ( 1.0 + ratioSq )**2 * ( 7.0 + 14.0*nu + 8.0*nu**2 ) + 4.0 * ratioSq * ( 5.0 + 10.0*nu + 4.0 *nu**2 ) )
+      axx = 1 / kappa      
       ayy = axx
                   
       ! add circular properties to XPropSet
@@ -831,70 +817,36 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
    
    INTEGER                  :: NNE        ! number of nodes in one element
    INTEGER                  :: N1, N2     ! starting node and ending node in the element
-   INTEGER                  :: P1, P2     ! property set numbers for starting and ending nodes
+   INTEGER                  :: P1, P2, P1i, P2i     ! property set numbers and indexes for starting and ending nodes
 
-   REAL(ReKi)               :: E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz ! properties of a section
-   REAL(ReKi)               :: A1, A2, Ax1, Ax2, Ay1, Ay2, Axy1, Axy2, xs1, xs2, ys1, ys2, Jx1, Jx2, Jy1, Jy2, Jxy1, Jxy2, Jz1, Jz2 ! properties of each node from one element
-   REAL(ReKi)               :: X1, Y1, Z1, X2, Y2, Z2    ! coordinates of the nodes
-   REAL(ReKi)               :: MID                       ! Current MemberID
-   REAL(ReKi)               :: psi                       ! Orientation angle of the current cross-section
-   REAL(ReKi)               :: DirCos(3, 3)              ! direction cosine matrices
-   REAL(ReKi)               :: L                         ! length of the element
-   LOGICAL                  :: shear
-   REAL(ReKi), ALLOCATABLE  :: Ke(:,:), Me(:, :), FGe(:) ! element stiffness and mass matrices gravity force vector
-   INTEGER, ALLOCATABLE     :: nn(:)                     ! node number in element 
+   REAL(ReKi)               :: X1, Y1, Z1, X2, Y2, Z2                        ! coordinates of the nodes
+   REAL(ReKi)               :: Kcs1(6,6), Kcs2(6,6), Mcs1(6,6), Mcs2(6,6)    ! coordinates of the nodes
+   REAL(ReKi)               :: MID                                           ! Current MemberID
+   REAL(ReKi)               :: psi                                           ! Orientation angle of the current cross-section
+   REAL(ReKi)               :: DirCos(3, 3)                                  ! direction cosine matrices
+   REAL(ReKi)               :: L                                             ! length of the element
+   REAL(ReKi), ALLOCATABLE  :: Ke(:,:), Me(:, :), FGe(:)                     ! element stiffness and mass matrices gravity force vector
+   INTEGER, ALLOCATABLE     :: nn(:)                                         ! node number in element 
    INTEGER                  :: r
    
    
    INTEGER(IntKi)           :: ErrStat2
-   CHARACTER(1024)          :: ErrMsg2
-
-
-   !bas, FEMMod query is located out of the DO loop for efficiency (according to old comment from jj)
-   IF  (Init%FEMMod == 2) THEN ! tapered Euler-Bernoulli
-      CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 2 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
-      CALL CleanUp_AssembleKM()
-      RETURN
-         
-   ELSEIF  (Init%FEMMod == 4) THEN ! tapered Timoshenko
-      CALL SetErrStat ( ErrID_Fatal, 'FEMMod = 4 is not implemented.', ErrStat, ErrMsg, 'AssembleKM' )
-      CALL CleanUp_AssembleKM()
-      RETURN
-
-   ELSEIF  (Init%FEMMod == 1) THEN ! uniform Euler-Bernoulli
-      Shear = .false.
-
-   ELSEIF  (Init%FEMMod == 3) THEN ! uniform Timoshenko
-      Shear = .true.
-         
-   ELSE
-      CALL SetErrStat ( ErrID_Fatal, 'FEMMod is not valid. Please choose from 1, 2, 3, and 4. ', ErrStat, ErrMsg, 'AssembleKM' )
-      CALL CleanUp_AssembleKM()
-      RETURN
-         
-   ENDIF
-   
-      ! for current application
-   IF ( (Init%FEMMod .LE. 3) .and. (Init%FEMMod .GE. 0)) THEN
-      NNE = 2
-   ELSE
-      ErrStat = ErrID_Fatal
-      ErrMsg = 'Invalid FEMMod in AssembleKM'
-      RETURN
-   ENDIF                          
+   CHARACTER(1024)          :: ErrMsg2                     
    
    ! total degrees of freedom of the system 
    Init%TDOF = 6*Init%NNode
    
-         ! Assemble system stiffness and mass matrices with gravity force vector
+   ! Assemble system stiffness and mass matrices with gravity force vector
    
    ALLOCATE( p%ElemProps(Init%NElem), STAT=ErrStat2)
       IF (ErrStat2 /= 0) THEN
          CALL SetErrStat ( ErrID_Fatal, 'Error allocating p%ElemProps', ErrStat, ErrMsg, 'AssembleKM' )
          CALL CleanUp_AssembleKM()
       RETURN
-   ENDIF
-
+      ENDIF
+   
+   NNE = 2
+   
    CALL AllocAry( Ke,     NNE*6,         NNE*6 , 'Ke',      ErrStat2, ErrMsg2); CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'AssembleKM' )    ! element stiffness matrix
    CALL AllocAry( Me,     NNE*6,         NNE*6 , 'Me',      ErrStat2, ErrMsg2); CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'AssembleKM' )    ! element mass matrix 
    CALL AllocAry( FGe,    NNE*6,                 'FGe',     ErrStat2, ErrMsg2); CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'AssembleKM' )    ! element gravity force vector 
@@ -931,35 +883,8 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
             IF ( Init%MemberElements(J, K + 1) == I ) THEN
                MID = Init%MemberElements(J, 1)
             ENDIF
-         
          ENDDO
-      
       ENDDO
-      
-      
-      E   = Init%Props(P1, 2)
-      G   = Init%Props(P1, 3)
-      rho = Init%Props(P1, 4)
-      A1  = Init%Props(P1, 5)
-      Ax1  = Init%Props(P1, 6)
-      Ay1  = Init%Props(P1, 7)
-      Axy1  = Init%Props(P1, 8)
-      xs1  = Init%Props(P1, 9)
-      ys1  = Init%Props(P1, 10)
-      Jx1  = Init%Props(P1, 11)
-      Jy1  = Init%Props(P1, 12)
-      Jxy1  = Init%Props(P1, 13)
-      Jz1  = Init%Props(P1, 14)
-      A2  = Init%Props(P2, 5)
-      Ax2  = Init%Props(P2, 6)
-      Ay2  = Init%Props(P2, 7)
-      Axy2  = Init%Props(P2, 8)
-      xs2  = Init%Props(P2, 9)
-      ys2  = Init%Props(P2, 10)
-      Jx2  = Init%Props(P2, 11)
-      Jy2  = Init%Props(P2, 12)
-      Jxy2  = Init%Props(P2, 13)
-      Jz2  = Init%Props(P2, 14)
       
       X1  = Init%Nodes(N1, 2)
       Y1  = Init%Nodes(N1, 3)
@@ -976,48 +901,44 @@ SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
             RETURN
          END IF
          
-      A   = (A1 + A2) / 2.0_ReKi
-      Ax  = (Ax1 + Ax2) / 2.0_ReKi
-      Ay  = (Ay1 + Ay2) / 2.0_ReKi
-      Axy = (Axy1 + Axy2) / 2.0_ReKi
-      xs  = (xs1 + xs2) / 2.0_ReKi
-      ys  = (ys1 + ys2) / 2.0_ReKi
-      Jx  = (Jx1 + Jx2) / 2.0_ReKi
-      Jy  = (Jy1 + Jy2) / 2.0_ReKi
-      Jxy = (Jxy1 + Jxy2) / 2.0_ReKi
-      Jz  = (Jz1 + Jz2) / 2.0_ReKi
-         
-         
-      p%ElemProps(i)%Area = A
-      p%ElemProps(i)%Length = L
-      p%ElemProps(i)%Jx = Jx
-      p%ElemProps(i)%Jy = Jy
-      p%ElemProps(i)%Jxy = Jxy
-      p%ElemProps(i)%Jz = Jz
-      p%ElemProps(i)%Ax = Ax
-      p%ElemProps(i)%Ay = Ay
-      p%ElemProps(i)%Axy = Axy
-      p%ElemProps(i)%xs = xs
-      p%ElemProps(i)%ys = ys
-      p%ElemProps(i)%YoungE = E
-      p%ElemProps(i)%ShearG = G
-      p%ElemProps(i)%Rho = rho
+      ! search for index of property set IDs P1 and P2
+      DO J = 1, Init%NProp
+         IF (Init%Props((J-1)*XFSMPropSetsRow + 1, 1) == P1) THEN
+            P1i = (J-1)*XFSMPropSetsRow + 1
+         END IF
+         IF (Init%Props((J-1)*XFSMPropSetsRow + 1, 1) == P2) THEN
+            P2i = (J-1)*XFSMPropSetsRow + 1
+         END IF
+      ENDDO
+      
+      ! get the cross sectional structural matrices of both ends of this element
+      
+      Kcs1 = Init%Props(P1i + 1 : P1i + 6, 1:6)
+      Kcs2 = Init%Props(P2i + 1 : P2i + 6, 1:6)
+      Mcs1 = Init%Props(P1i + 7 : P1i + 12, 1:6)
+      Mcs2 = Init%Props(P2i + 7 : P2i + 12, 1:6)
+      
+      p%ElemProps(i)%L = L  
+      p%ElemProps(i)%Kcs1 = Kcs1
+      p%ElemProps(i)%Kcs2 = Kcs2
+      p%ElemProps(i)%Mcs1 = Mcs1
+      p%ElemProps(i)%Mcs2 = Mcs2
       p%ElemProps(i)%psi = psi
       p%ElemProps(i)%DirCos = DirCos
          
-      CALL ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, Ke, ErrStat2, ErrMsg2)
+      CALL ElemK(L, Kcs1, Kcs2, DirCos, Ke, ErrStat2, ErrMsg2)
          CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'ElemK' )
          IF (ErrStat >= AbortErrLev) THEN
             CALL CleanUp_AssembleKM()
             RETURN
          END IF
-      CALL ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, Me, ErrStat2, ErrMsg2)
+      CALL ElemM(L, Kcs1, Kcs2, Mcs1, Mcs2, DirCos, Me, ErrStat2, ErrMsg2)
          CALL SetErrStat ( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'ElemM' )
          IF (ErrStat >= AbortErrLev) THEN
             CALL CleanUp_AssembleKM()
             RETURN
          END IF
-      CALL ElemG(A, L, rho, DirCos, FGe, Init%g)                                                                                                                                                               
+      CALL ElemG(L, (Mcs1(1,1) + Mcs2(1,1)) / 2.0_ReKi, DirCos, FGe, Init%g)                                                                                                                                                               
 
       
       ! assemble element matrices to global matrices
@@ -1336,21 +1257,21 @@ END SUBROUTINE GetDirCos
 
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
-SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, ErrStat, ErrMsg)
+SUBROUTINE ElemK(L, Kcs1, Kcs2, DirCos, K, ErrStat, ErrMsg)
    ! Element stiffness matrix for beam element with arbitrary cross-section - defined with respect to the centroid
    ! Theory reference: Taeseong Kim, Anders M. Hansen, and Kim Branner.:"Development of an anisotropic beam finite element for composite wind turbine blades in multibody system."Renewable Energy 59 (2013): 172-183.
 
-   REAL(ReKi), INTENT( IN)               :: A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G
    REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
-   
+   REAL(ReKi), INTENT( IN)               :: Kcs1(6, 6), Kcs2(6, 6)  ! Start and end cross-sectional stiffness matrices
+   REAL(ReKi), INTENT( IN)               :: L                  ! Length of this beam element
+
+   REAL(ReKi)                            :: Ks(6, 6)          ! Interpolated stiffness matrix
    REAL(ReKi)                            :: K(12, 12)          ! Beam stiffness matrix
-   REAL(ReKi)                            :: Ks(6, 6)           ! Cross-sectional stiffness matrix
-   REAL(ReKi)                            :: xc, yc             ! Centroid offset coordinates with respect to the reference frame
    REAL(ReKi)                            :: DC(12, 12)         ! Direction cosine matrix
    REAL(ReKi)                            :: Y1(36, 12), Y2(36, 24), Q(24, 24), P(24, 12), N_a(36, 12), N1(12, 12), N2(12, 24), N(6, 36), dN(6, 36), B0(6, 6), B(6, 36), D(36, 36), Aa1(36, 12), Aa2(36, 24) ! Auxillary matrices for mass matrix calculation
    REAL(ReKi)                            :: I6(6, 6)           ! Identity matrix
    REAL(ReKi)                            :: Gp(6), Wp(6)       ! Gauss integration points and weight factors
-   INTEGER(IntKi)                        :: i, ii, iii         ! counter
+   INTEGER(IntKi)                        :: i                  ! counter
    INTEGER                               :: LWORK              ! The dimension of the array WORK. LWORK >= max(1,N). For optimal performance LWORK >= N*NB, where NB is the optimal blocksize returned by ILAENV. If LWORK = -1, then a workspace query is assumed; the routine only calculates the optimal size of the WORK array, returns this value as the first entry of the WORK array, and no error message related to LWORK is issued by XERBLA.
    INTEGER                               :: IPIV(12)           ! dimension (N). The pivot indices from DGETRF; for 1<=i<=N, row i of the matrix was interchanged with row IPIV(i).
    REAL(R8Ki)                            :: Q_inv(24, 24), N1_inv(12, 12) ! On entry, the factors L and U from the factorization A = P*L*U as computed by SGETRF. On exit, if INFO = 0, the inverse of the original matrix A.
@@ -1361,11 +1282,6 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, Er
    
    ErrMsg  = ""
    ErrStat = ErrID_None
-     
-   !xc = 1.99726E-2            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
-   !yc = 4.4231E-2             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
-   xc = 0.0            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
-   yc = 0.0             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
    
    ! Initialize matrices
    Y1 = 0.0_ReKi
@@ -1384,26 +1300,6 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, Er
    B0 = 0.0_ReKi
    B = 0.0_ReKi
    D = 0.0_ReKi
-   
-   ! Establish cross-sectional stiffness matrix
-   Ks(1, 1) = Ax*G
-   Ks(1, 2) = -Axy*G
-   Ks(1, 6) = -Ax*G*ys - Axy*G*xs
-   Ks(2, 1) = -Axy*G
-   Ks(2, 2) = Ay*G
-   Ks(2, 6) = Axy*G*ys + Ay*G*xs
-   Ks(3, 3) = A*E
-   Ks(3, 4) = A*E*yc
-   Ks(3, 5) = -A*E*xc
-   Ks(4, 3) = A*E*yc
-   Ks(4, 4) = A*E*yc**2 + E*Jx
-   Ks(4, 5) = -A*E*xc*yc - E*Jxy
-   Ks(5, 3) = -A*E*xc
-   Ks(5, 4) = -A*E*xc*yc - E*Jxy
-   Ks(5, 5) = A*E*xc**2 + E*Jy
-   Ks(6, 1) = -Ax*G*ys - Axy*G*xs
-   Ks(6, 2) = Axy*G*ys + Ay*G*xs
-   Ks(6, 6) = Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz
       
    ! Establish auxillary matrices
    FORALL(I = 1:6) I6(I,I) = 1.0_ReKi     ! Create identity matrix
@@ -1467,7 +1363,10 @@ SUBROUTINE ElemK(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, E, G, DirCos, K, Er
       dN(1:6, 31:36) = I6 * 5_ReKi * Gp(i)**4_ReKi
       
       B = MATMUL(B0, N) + dN
-   
+      
+      ! Calculate an interpolated cross sectional stiffness matrix, with respect to the position of this Gauss point along the beam
+      Ks = Kcs1 + (Kcs2 - Kcs1) / L * Gp(i)
+      
       D = D + MATMUL(MATMUL(TRANSPOSE(B), Ks), B) * Wp(i)
    ENDDO   
 
@@ -1507,22 +1406,22 @@ END SUBROUTINE ElemK
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 
-SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, M, ErrStat, ErrMsg)
+SUBROUTINE ElemM(L, Kcs1, Kcs2, Mcs1, Mcs2, DirCos, M, ErrStat, ErrMsg)
    ! Element mass matrix with shear respecting shape functions
    ! Theory reference: Taeseong Kim, Anders M. Hansen, and Kim Branner.:"Development of an anisotropic beam finite element for composite wind turbine blades in multibody system."Renewable Energy 59 (2013): 172-183.
-
-   REAL(ReKi), INTENT( IN)               :: A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G
+  
+   REAL(ReKi), INTENT( IN)               :: Kcs1(6, 6), Kcs2(6, 6), Mcs1(6, 6), Mcs2(6, 6) ! Cross-sectional mass and stiffness matrix 
    REAL(ReKi), INTENT( IN)               :: DirCos(3,3)
+   REAL(ReKi), INTENT( IN)               :: L                  ! Length of this beam element
    
    REAL(ReKi)                            :: M_a(36, 36)        ! Auxillary mass matrix
-   REAL(ReKi)                            :: M(12, 12)          ! Mass matrix
-   REAL(ReKi)                            :: Ms(6, 6), Ks(6, 6) ! Cross-sectional mass and stiffness matrix        
-   REAL(ReKi)                            :: xc, yc             ! Centroid offset coordinates with respect to the reference frame
+   REAL(ReKi)                            :: M(12, 12)          ! Mass matrix       
+   REAL(ReKi)                            :: Ms(6, 6), Ks(6, 6) ! Cross-sectional mass and stiffness matrix    
    REAL(ReKi)                            :: DC(12, 12)         ! Direction cosine matrix
    REAL(ReKi)                            :: Y1(36, 12), Y2(36, 24), Q(24, 24), P(24, 12), N_a(36, 12), N1(12, 12), N2(12, 24), N(6, 36), dN(6, 36), B0(6, 6), B(6, 36), D(36, 36), Aa1(36, 12), Aa2(36, 24) ! Auxillary matrices for mass matrix calculation
    REAL(ReKi)                            :: I6(6, 6)           ! Identity matrix
    REAL(ReKi)                            :: Gp(6), Wp(6)       ! Gauss integration points and weight factors
-   INTEGER(IntKi)                        :: i, ii              ! counter
+   INTEGER(IntKi)                        :: i                  ! counter
    INTEGER                               :: LWORK              ! The dimension of the array WORK. LWORK >= max(1,N). For optimal performance LWORK >= N*NB, where NB is the optimal blocksize returned by ILAENV. If LWORK = -1, then a workspace query is assumed; the routine only calculates the optimal size of the WORK array, returns this value as the first entry of the WORK array, and no error message related to LWORK is issued by XERBLA.
    INTEGER                               :: IPIV(12)           ! dimension (N). The pivot indices from DGETRF; for 1<=i<=N, row i of the matrix was interchanged with row IPIV(i).
    REAL(R8Ki)                            :: Q_inv(24, 24), N1_inv(12, 12) ! On entry, the factors L and U from the factorization A = P*L*U as computed by SGETRF. On exit, if INFO = 0, the inverse of the original matrix A.
@@ -1533,12 +1432,7 @@ SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, 
    
    ErrMsg  = ""
    ErrStat = ErrID_None
-   
-   !xc = 1.99726E-2            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
-   !yc = 4.4231E-2             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
-   xc = 0.0            ! controid offset from reference frame in x direction (hard coded, because of problems with solving of the dynamic system, if xc != 0)
-   yc = 0.0             ! controid offset from reference frame in y direction (hard coded, because of problems with solving of the dynamic system, if yc != 0)
-   
+
    ! Initialize matrices
    Y1 = 0.0_ReKi
    Y2 = 0.0_ReKi
@@ -1558,44 +1452,6 @@ SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, 
    B = 0.0_ReKi
    D = 0.0_ReKi
    M_a = 0.0_ReKi
-   
-   ! Establish cross-sectional mass matrix
-   Ms(1, 1) = A * rho
-   Ms(1, 6) = - A * rho * yc
-   Ms(2, 2) = A * rho
-   Ms(2, 6) = A * rho * xc
-   Ms(3, 3) = A * rho
-   Ms(3, 4) = A * rho * yc
-   Ms(3, 5) = - A * rho * xc
-   Ms(4, 3) = A * rho * yc
-   Ms(4, 4) = Jx * rho
-   Ms(4, 5) = - Jxy * rho
-   Ms(5, 3) = - A * rho * xc
-   Ms(5, 4) = - Jxy * rho
-   Ms(5, 5) = Jy * rho
-   Ms(6, 1) = - A * rho * yc
-   Ms(6, 2) = A * rho * xc
-   Ms(6, 6) = (Jx + Jy) * rho
-   
-   ! Establish cross-sectional stiffness matrix
-   Ks(1, 1) = Ax*G
-   Ks(1, 2) = -Axy*G
-   Ks(1, 6) = -Ax*G*ys - Axy*G*xs
-   Ks(2, 1) = -Axy*G
-   Ks(2, 2) = Ay*G
-   Ks(2, 6) = Axy*G*ys + Ay*G*xs
-   Ks(3, 3) = A*E
-   Ks(3, 4) = A*E*yc
-   Ks(3, 5) = -A*E*xc
-   Ks(4, 3) = A*E*yc
-   Ks(4, 4) = A*E*yc**2 + E*Jx
-   Ks(4, 5) = -A*E*xc*yc - E*Jxy
-   Ks(5, 3) = -A*E*xc
-   Ks(5, 4) = -A*E*xc*yc - E*Jxy
-   Ks(5, 5) = A*E*xc**2 + E*Jy
-   Ks(6, 1) = -Ax*G*ys - Axy*G*xs
-   Ks(6, 2) = Axy*G*ys + Ay*G*xs
-   Ks(6, 6) = Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz
       
    ! Establish auxillary matrices
    FORALL(I = 1:6) I6(I,I) = 1.0_ReKi     ! Get identity matrix
@@ -1660,7 +1516,10 @@ SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, 
       dN(1:6, 31:36) = I6 * 5_ReKi * Gp(i)**4_ReKi
       
       B = MATMUL(B0, N) + dN
-   
+      
+      ! Calculate an interpolated cross sectional stiffness matrix, with respect to the position of this Gauss point along the beam
+      Ks = Kcs1 + (Kcs2 - Kcs1) / L * Gp(i)
+      
       D = D + MATMUL(MATMUL(TRANSPOSE(B), Ks), B) * Wp(i) 
    ENDDO
    
@@ -1681,6 +1540,9 @@ SUBROUTINE ElemM(A, L, Jx, Jy, Jxy, Jz, Ax, Ay, Axy, xs, ys, rho, E, G, DirCos, 
       N(1:6, 19:24) = I6 * Gp(i)**3
       N(1:6, 25:30) = I6 * Gp(i)**4
       N(1:6, 31:36) = I6 * Gp(i)**5
+      
+      ! Calculate an interpolated cross sectional stiffness matrix, with respect to the position of this Gauss point along the beam
+      Ms = Mcs1 + (Mcs2 - Mcs1) / L * Gp(i)
       
       M_a = M_a + MATMUL(MATMUL(TRANSPOSE(N), Ms), N) * Wp(I)
    ENDDO
@@ -1734,28 +1596,27 @@ SUBROUTINE ApplyConstr(Init,p)
 END SUBROUTINE ApplyConstr
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
-SUBROUTINE ElemG(A, L, rho, DirCos, F, g)
+SUBROUTINE ElemG(L, w, DirCos, F, g)
 ! this routine calculates the lumped forces and moments due to gravity on a given element:
 ! the element has two nodes, with the loads for both elements stored in array F. Indexing of F is:
 !  Fx_n1=1,Fy_n1=2,Fz_n1=3,Mx_n1= 4,My_n1= 5,Mz_n1= 6,
 !  Fx_n2=7,Fy_n2=8,Fz_n2=9,Mx_n2=10,My_n2=11,Mz_n2=12
+!bas: In this version w is used as the avarage of the 1,1 elements of the start and end cross sectional mass matrices and will be multiplied by g to get the corresponding forces at the nodes later in this subroutine
 !------------------------------------------------------------------------------------------------------
    REAL(ReKi), INTENT( OUT)           :: F(12)        ! returned loads. positions 1-6 are the loads for node 1; 7-12 are loads for node 2.
-   REAL(ReKi), INTENT( IN )           :: A            ! area
    REAL(ReKi), INTENT( IN )           :: g            ! gravity
    REAL(ReKi), INTENT( IN )           :: L            ! element length
-   REAL(ReKi), INTENT( IN )           :: rho           
+   REAL(ReKi), INTENT( IN )           :: w            ! weight per unit length
    REAL(ReKi), INTENT( IN )           :: DirCos(3, 3) ! direction cosine matrix (for determining distance between nodes 1 and 2)
 
    REAL(ReKi)                         :: TempCoeff
-   REAL(ReKi)                         :: w            ! weight per unit length
+   REAL(ReKi)                         :: wg
 
    
    F = 0             ! initialize whole array to zero, then set the non-zero portions
-   w = rho*A*g       ! weight per unit length
-   
+   wg = w * g
       ! lumped forces on both nodes (z component only):
-   F(3) = -0.5*L*w 
+   F(3) = -0.5*L*w
    F(9) = F(3)
           
       ! lumped moments on node 1 (x and y components only):

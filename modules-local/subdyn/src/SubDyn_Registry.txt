@@ -57,7 +57,7 @@ typedef	^	FEM_MatArrays	ReKi   	Modes	{:}{:}	-	-	"Eigenmodes of full FEM model, 
 
 #
 typedef	^	ElemPropType 	ReKi	Area	-	-	-	"Area of an element"
-typedef	^	^	ReKi	Length	-	-	-	"Length of an element"
+typedef	^	^	ReKi	L	-	-	-	"Length of an element"
 typedef	^	^	ReKi	Jx	-	-	-	"Moment of inertia of an element"
 typedef	^	^	ReKi	Jy	-	-	-	"Moment of inertia of an element"
 typedef	^	^	ReKi	Jxy	-	-	-	"Moment of inertia of an element"
@@ -70,6 +70,10 @@ typedef	^	^	ReKi	ys	-	-	-	"Shear center offset in y-direction"
 typedef	^	^	ReKi	YoungE	-	-	-	"Young's modulus"
 typedef	^	^	ReKi	ShearG	-	-	-	"Shear modulus"
 typedef	^	^	ReKi	Rho	-	-	-	"Density"
+typedef	^	^	ReKi	Kcs1  	{6}{6}	-	-	"Element start cross sectional stiffness matrix"
+typedef	^	^	ReKi	Kcs2  	{6}{6}	-	-	"Element end cross sectional stiffness matrix"
+typedef	^	^	ReKi	Mcs1  	{6}{6}	-	-	"Element start cross sectional mass matrix"
+typedef	^	^	ReKi	Mcs2  	{6}{6}	-	-	"Element end cross sectional mass matrix"
 typedef	^	^	ReKi	psi	-	-	-	"Orientation angle psi in rad"
 typedef	^	^	ReKi	DirCos	{3}{3}	-	-	"Element direction cosine matrix"
 # ============================== Define initialization data (not from glue code) here: ============================================================================================================================================

@@ -1185,8 +1185,8 @@ END IF
 
 CALL ReadIVar ( UnIn, SDInputFile, Init%FEMMod, 'FEMMod', 'FEM analysis mode',ErrStat, ErrMsg, UnEc )
 
-IF ( ErrStat /= ErrID_None .or. ( Init%FEMMod < 0 ) .OR. ( Init%FEMMod > 4 ) )  THEN
-   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': FEMMod must be 0, 1, 2, or 3.'
+IF ( ErrStat /= ErrID_None .or. ( Init%FEMMod /= 1 ))  THEN
+   ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': FEMMod must be 1 for this SubDyn version.'
    ErrStat = ErrID_Fatal
    CALL CleanUp()
    RETURN   
@@ -3995,7 +3995,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    CHARACTER(*),PARAMETER                 :: SectionDivide = '____________________________________________________________________________________________________'
    CHARACTER(*),PARAMETER                 :: SubSectionDivide = '__________'
    
-   INTEGER(IntKi)                  ::  i, j, k, propids(2)  !counter and temporary holders 
+   INTEGER(IntKi)                  ::  i, j, k, idx1, idx2, propids(2)  !counter and temporary holders 
    
    INTEGER(IntKi)                         :: SDtoMeshIndx(Init%NNode)
    REAL(ReKi)                      :: MRB(6,6)    !REDUCED SYSTEM Kmatrix, equivalent mass matrix
@@ -4043,7 +4043,18 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'Number of elements (NElems):',Init%NElem
    WRITE(UnSum, '(A8,5(A10))')  'Elem No.',    'Node_I',     'Node_J',      'Prop_I',      'Prop_J',      'MemberID'
-   WRITE(UnSum, '(I8,I10,I10,I10,I10,I10)') ((p%Elems(i, j), j = 1, 3),(NINT(Init%Props(p%Elems(i, j),1)), j = 4, 5),(p%Elems(i, 6)), i = 1, Init%NElem)
+   DO i = 1, Init%NElem
+       ! get the indexes of the property IDs of this element
+       DO j = 1, Init%NProp
+          IF (Init%Props((j-1) * XFSMPropSetsRow + 1, 1) == p%Elems(i, 4)) THEN
+             idx1 = (j-1) * XFSMPropSetsRow + 1
+          ENDIF
+          IF (Init%Props((j-1) * XFSMPropSetsRow + 1, 1) == p%Elems(i, 5)) THEN
+             idx2 = (j-1) * XFSMPropSetsRow + 1
+          ENDIF
+       ENDDO
+       WRITE(UnSum, '(I8,I10,I10,I10,I10,I10)') (p%Elems(i, j), j = 1, 3), NINT(Init%Props(idx1, 1)), NINT(Init%Props(idx2, 1)), (p%Elems(i, 6))
+   ENDDO
    
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'Number of circular properties (NProps):',Init%NPropSets
@@ -4053,8 +4064,32 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'Number of arbitrary cross-section properties. Contains likewise converted circular cross-section properties. (NXProps):',Init%NXPropSets
    WRITE(UnSum, '(A8,14(A15))')  'Prop No.',     'YoungE',       'ShearG',       'MatDens',     'XsecA',      'XsecAx',      'XsecAy',      'XsecAxy',      'Xsecxs',      'Xsecys',      'XsecJxx',      'XsecJyy',      'XsecJxy',      'XsecJzz'
-   WRITE(UnSum, '(I8, E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6  ) ') (NINT(Init%Props(i, 1)), (Init%Props(i, j), j = 2, 14), i = 1, Init%NProp)
+   WRITE(UnSum, '(I8, E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6,E15.6  ) ') (NINT(Init%XPropSets(i, 1)), (Init%XPropSets(i, j), j = 2, 14), i = 1, Init%NXPropSets)
 
+   WRITE(UnSum, '()') 
+   WRITE(UnSum, '(A,I6)')  'Number of arbitrary cross-section properties, defined through full structural cross sectional stiffness and mass matrices. Contains likewise converted circular and arbitrary engineering constant cross-section properties. (NXFSMProps):',Init%NXFSMPropSets
+   WRITE(UnSum, '(A8)')  'Prop No.'
+   DO i = 1, Init%NProp
+      DO j = 1, XFSMPropSetsRow
+        IF (j == 1) THEN
+           IF (i /= 1) THEN
+              WRITE(UnSum, '(A)') ' '
+              WRITE(UnSum, '(A)') ' '
+           ENDIF
+           WRITE(UnSum, '(I8)') NINT(Init%Props((i-1)*XFSMPropSetsRow + 1, 1))
+           WRITE(UnSum, '(A8)')  'Kc:'
+        ENDIF
+        IF (j == 8) THEN
+           WRITE(UnSum, '(A)') ' '
+           WRITE(UnSum, '(A8)')  'Mc:'
+        ENDIF
+        IF (j /= 1) THEN
+           WRITE(UnSum, '(6(E21.6))') (Init%Props((i-1)*XFSMPropSetsRow + j, k), k = 1, 6)
+        ENDIF
+      ENDDO
+   ENDDO
+   
+   
    WRITE(UnSum, '()') 
    WRITE(UnSum, '(A,I6)')  'No. of Reaction DOFs:',p%NReact*6
    WRITE(UnSum, '(A, A6)')  'Reaction DOF_ID',      'LOCK'
@@ -4320,24 +4355,23 @@ FUNCTION MemberXMass(I, Init, L)
     REAL(ReKi)              :: MemberXMass           ! calculated mass
     !LOCALS
     INTEGER(IntKi)          :: Prop_I1, Prop_I2, K   ! property indexes and counter
-    REAL(ReKi)              :: rho, A1, A2           ! temporary coefficients
+    REAL(ReKi)              :: Mcs11_1, Mcs11_2      ! temporary coefficients
     
-    DO K = 1, Init%NXPropSets
-       IF ( EqualRealNos(Init%Members(I, 4), Init%XPropSets(K, 1)) ) THEN
-          Prop_I1 = K
+    DO K = 1, Init%NXFSMPropSets
+       IF ( EqualRealNos(Init%Members(I, 4), Init%XFSMPropSets((K-1)*XFSMPropSetsRow + 1, 1)) ) THEN
+          Prop_I1 = (K-1)*XFSMPropSetsRow + 1
        
        ENDIF
-       IF ( EqualRealNos(Init%Members(I, 5), Init%XPropSets(K, 1)) ) THEN
-          Prop_I2 = K   
+       IF ( EqualRealNos(Init%Members(I, 5), Init%XFSMPropSets((K-1)*XFSMPropSetsRow + 1, 1)) ) THEN
+          Prop_I2 = (K-1)*XFSMPropSetsRow + 1   
 
        ENDIF           
     ENDDO
     
-    rho = Init%XPropSets(Prop_I1, 4) !Density is not allowed to change within one member (This has been checked within SD_Discrt subroutine)
-    A1 = Init%XPropSets(Prop_I1, 5)
-    A2 = Init%XPropSets(Prop_I2, 5)
+    Mcs11_1 = Init%XFSMPropSets(Prop_I1 + 7, 1)
+    Mcs11_2 = Init%XFSMPropSets(Prop_I2 + 7, 1)
     
-    MemberXMass = ( A1 + A2 ) / 2.0_ReKi * L * rho !Integral of rho*A dz
+    MemberXMass = ( Mcs11_1 + Mcs11_2 ) / 2.0_ReKi * L !Integral of rho*A dz = Integral of Mcs(1,1) dz
       
 END FUNCTION MemberXMass
 
