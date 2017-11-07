@@ -4084,7 +4084,7 @@ SUBROUTINE OutSummary(Init, p, FEMparams,CBparams, ErrStat,ErrMsg)
            WRITE(UnSum, '(A8)')  'Mc:'
         ENDIF
         IF (j /= 1) THEN
-           WRITE(UnSum, '(6(E21.6))') (Init%Props((i-1)*XFSMPropSetsRow + j, k), k = 1, 6)
+           WRITE(UnSum, '(1(E21.6),5(E15.6))') (Init%Props((i-1)*XFSMPropSetsRow + j, k), k = 1, 6)
         ENDIF
       ENDDO
    ENDDO
