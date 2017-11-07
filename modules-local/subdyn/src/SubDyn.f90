@@ -1830,10 +1830,6 @@ DO K = 1, Init%NXFSMPropSets + 1
     ENDDO
 ENDDO
 
-DO I = 1, Init%NXFSMPropSets * XFSMPropSetsRow
-    WRITE(*,*) Init%XFSMPropSets(I,:)
-ENDDO 
-
 !------------------------ JOINT ADDITIONAL CONCENTRATED MASSES--------------------------
 
    ! Skip the comment line.

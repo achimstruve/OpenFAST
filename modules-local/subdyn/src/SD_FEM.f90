@@ -264,8 +264,17 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    
    END DO ! loop through members
    
-   ! Conversion from circular PropSets to arbitrary XPropSets
+   ! Conversion from circular PropSets to arbitrary XPropSets with engineering constants
    CALL ConvertPropSets(Init)
+   ! Conversion from arbitrary XPropSets with engineering constants to arbitrary XFSMPropSets with full structural matrices
+   CALL ConvertXPropSets(Init)
+
+   DO I = 1, Init%NXFSMPropSets
+       WRITE(*,*) " "
+       DO J = 1, XFSMPropSetsRow
+          WRITE(*, '(6(E15.4))') Init%XFSMPropSets((I-1)*XFSMPropSetsRow + J,:)
+       ENDDO
+   ENDDO 
    
    ! Initialize TempMembers
    TempMembers = p%Elems(1:p%NMembers,:)
@@ -688,6 +697,90 @@ SUBROUTINE ConvertPropSets(Init)
    Init%NXPropSets = Init%NXPropSets + Init%NPropSets ! update the number of general circular cross sections to its new value
    
 END SUBROUTINE ConvertPropSets
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
+SUBROUTINE ConvertXPropSets(Init)
+! This subroutine converts the XPropSet properties to cross sectional structural matrices and adds them to the XFSMPropSet
+   TYPE(SD_InitType),            INTENT(INOUT)  ::Init
+
+   INTEGER                  :: I, J
+
+   REAL(ReKi)               :: E, G, rho, A, Ax, Ay, Axy, xs, ys, xc, yc, Jx, Jy, Jxy, Jz! conversion entities                       
+
+   ! hard coded centroid positions, relative to the reference frame
+   xc = 0
+   yc = 0
+   
+   ! start index for XPropSet properties within XFSMPropSet
+   I = Init%NXFSMPropSets * XFSMPropSetsRow
+   
+   ! initialize all following structural matrix values to zero
+   Init%XFSMPropSets(I+1:,:) = 0
+   
+   ! loop over all XPropSet property sets
+   DO J = 1, Init%NXPropSets
+                  
+      E = Init%XPropSets(J,2)                     ! get E-modulus from XPropSet
+      G = Init%XPropSets(J,3)                     ! get shear modulus from XPropSet
+      rho = Init%XPropSets(J,4)                   ! get density from XPropSet
+      A = Init%XPropSets(J,5)                     ! get area from XPropSet
+      Ax = Init%XPropSets(J,6)                    ! get corrected shear area along x from XPropSet
+      Ay = Init%XPropSets(J,7)                    ! get corrected shear area along y from XPropSet
+      Axy = Init%XPropSets(J,8)                   ! get corrected shear area for coupling between x and y from XPropSet
+      xs = Init%XPropSets(J,9)                    ! get shear center offset in x-direction
+      ys = Init%XPropSets(J,10)                   ! get shear center offset in y-direction
+      Jx = Init%XPropSets(J,11)                   ! get second area moment of inertia around x axis from XPropSet
+      Jy = Init%XPropSets(J,12)                   ! get second area moment of inertia around y axis from XPropSet
+      Jxy =Init%XPropSets(J,13)                   ! get second area moment of inertia for coupling between x and y axis from XPropSet
+      Jz = Init%XPropSets(J,14)                   ! get torsional moment of inertia from XPropSet
+
+      ! add XPropSet properties to XFSMPropSet
+      Init%XFSMPropSets(I+1,1) = Init%XPropSets(J,1)! add XPropSet ID to XFSMPropSet
+      
+      ! Establish cross-sectional stiffness matrix
+      Init%XFSMPropSets(I+1+ 1, 1) = Ax*G
+      Init%XFSMPropSets(I+1+ 1, 2) = -Axy*G
+      Init%XFSMPropSets(I+1+ 1, 6) = -Ax*G*ys - Axy*G*xs
+      Init%XFSMPropSets(I+1+ 2, 1) = -Axy*G
+      Init%XFSMPropSets(I+1+ 2, 2) = Ay*G
+      Init%XFSMPropSets(I+1+ 2, 6) = Axy*G*ys + Ay*G*xs
+      Init%XFSMPropSets(I+1+ 3, 3) = A*E
+      Init%XFSMPropSets(I+1+ 3, 4) = A*E*yc
+      Init%XFSMPropSets(I+1+ 3, 5) = -A*E*xc
+      Init%XFSMPropSets(I+1+ 4, 3) = A*E*yc
+      Init%XFSMPropSets(I+1+ 4, 4) = A*E*yc**2 + E*Jx
+      Init%XFSMPropSets(I+1+ 4, 5) = -A*E*xc*yc - E*Jxy
+      Init%XFSMPropSets(I+1+ 5, 3) = -A*E*xc
+      Init%XFSMPropSets(I+1+ 5, 4) = -A*E*xc*yc - E*Jxy
+      Init%XFSMPropSets(I+1+ 5, 5) = A*E*xc**2 + E*Jy
+      Init%XFSMPropSets(I+1+ 6, 1) = -Ax*G*ys - Axy*G*xs
+      Init%XFSMPropSets(I+1+ 6, 2) = Axy*G*ys + Ay*G*xs
+      Init%XFSMPropSets(I+1+ 6, 6) = Ax*G*ys**2 + 2*Axy*G*xs*ys + Ay*G*xs**2 + G*Jz
+
+      ! Establish cross-sectional mass matrix
+      Init%XFSMPropSets(I+7+ 1, 1) = A * rho
+      Init%XFSMPropSets(I+7+ 1, 6) = - A * rho * yc
+      Init%XFSMPropSets(I+7+ 2, 2) = A * rho
+      Init%XFSMPropSets(I+7+ 2, 6) = A * rho * xc
+      Init%XFSMPropSets(I+7+ 3, 3) = A * rho
+      Init%XFSMPropSets(I+7+ 3, 4) = A * rho * yc
+      Init%XFSMPropSets(I+7+ 3, 5) = - A * rho * xc
+      Init%XFSMPropSets(I+7+ 4, 3) = A * rho * yc
+      Init%XFSMPropSets(I+7+ 4, 4) = Jx * rho
+      Init%XFSMPropSets(I+7+ 4, 5) = - Jxy * rho
+      Init%XFSMPropSets(I+7+ 5, 3) = - A * rho * xc
+      Init%XFSMPropSets(I+7+ 5, 4) = - Jxy * rho
+      Init%XFSMPropSets(I+7+ 5, 5) = Jy * rho
+      Init%XFSMPropSets(I+7+ 6, 1) = - A * rho * yc
+      Init%XFSMPropSets(I+7+ 6, 2) = A * rho * xc
+      Init%XFSMPropSets(I+7+ 6, 6) = (Jx + Jy) * rho
+
+      I = I + XFSMPropSetsRow ! add XFSMPropSetsRow's to XPropSet index within XFSMPropSet
+   ENDDO
+
+   Init%NXFSMPropSets = Init%NXFSMPropSets + Init%NXPropSets ! update the number of XFSMPropSets to its new value, which respects for property sets from the XPropSets and PropSets
+   
+END SUBROUTINE ConvertXPropSets
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 SUBROUTINE AssembleKM(Init,p, ErrStat, ErrMsg)
