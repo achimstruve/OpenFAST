@@ -118,15 +118,16 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat     ! Error status of the operation
    CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
       ! local variable
-   INTEGER                       :: I, J, n, Node, Node1, Node2, Prop, Prop1, Prop2   
+   INTEGER                       :: I, J, K, n, Node, Node1, Node2, Prop, Prop1, Prop2, Prop1i, Prop2i
    INTEGER                       :: OldJointIndex(Init%NJoints)
    INTEGER                       :: NNE      ! number of nodes per element
-   INTEGER                       :: MaxNXProp
+   INTEGER                       :: MaxNXFSMProp
    REAL(ReKi), ALLOCATABLE       :: TempProps(:, :)
    INTEGER, ALLOCATABLE          :: TempMembers(:, :) ,TempReacts(:,:)         
-   INTEGER                       :: knode, kelem, kprop, nprop, MID
-   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz, A1, A2, dA, Ax1, Ax2, dAx, Ay1, Ay2, dAy, Axy1, Axy2, dAxy, xs1, xs2, dxs, ys1, ys2, dys, Jx1, Jx2, dJx, Jy1, Jy2, dJy, Jxy1, Jxy2, dJxy, Jz1, Jz2, dJz
-   LOGICAL                       :: found, CreateNewProp
+   INTEGER                       :: knode, kelem, nkprop, kprop, kpropi, nprop, MID
+   REAL(ReKi)                    :: x1, y1, z1, x2, y2, z2, dx, dy, dz
+   REAL(ReKi)                    :: SM1(12, 6), SM2(12, 6), dSM(12, 6)
+   LOGICAL                       :: found, CreateNewProp, Got_new_prop
    INTEGER(IntKi)                :: ErrStat2
    CHARACTER(1024)               :: ErrMsg2
    
@@ -147,7 +148,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    
    Init%NNode = Init%NJoints + ( Init%NDiv - 1 )*p%NMembers    ! Calculate total number of nodes according to divisions 
    Init%NElem = p%NMembers*Init%NDiv                           ! Total number of element   
-   MaxNXProp   = Init%NPropSets + Init%NXPropSets + Init%NElem*NNE                ! Maximum possible number of property sets (temp): This is property set per element node, for all elements (bjj, added Init%NPropSets to account for possibility of entering many unused prop sets)(bas, added Init%NXPropSets to account for possibility of entering many unused xprop sets)
+   MaxNXFSMProp   = Init%NXFSMPropSets + Init%NElem*NNE                ! Maximum possible number of property sets (temp): This is property set per element node, for all elements (bjj, added Init%NPropSets to account for possibility of entering many unused prop sets)(bas, added Init%NXPropSets to account for possibility of entering many unused xprop sets)
    
    ! Calculate total number of nodes and elements according to element types
    ! for 3-node or 4-node beam elements
@@ -169,7 +170,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    CALL AllocAry(Init%IntFc,      6*Init%NInterf,2,          'Init%IntFc',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
    CALL AllocAry(TempMembers,     p%NMembers,    MembersCol, 'TempMembers',     ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
-   CALL AllocAry(TempProps,       MaxNXProp,      XPropSetsCol,'TempProps',       ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
+   CALL AllocAry(TempProps,       MaxNXFSMProp * XFSMPropSetsRow,      XFSMPropSetsCol,'TempProps',       ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt') 
    CALL AllocAry(TempReacts,      p%NReact,      ReactCol,   'TempReacts',      ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    
 
@@ -224,8 +225,8 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
          ! loop through the PropSetIDs for this member and find the corresponding indices into the Joints array
       
       ! we're setting these two values:   
-      !p%Elems(I, 4) = property set for node 1 (note this sets the YoungE, ShearG, and MatDens columns for the ENTIRE element)   
-      !p%Elems(I, 5) = property set for node 2 (note this should be used only for the XsecD and XsecT properties in the element [for a linear distribution from node 1 to node 2 of D and T])
+      !p%Elems(I, 4) = property set for node 1 (note this sets is used for the ENTIRE element, in case both property sets are the same)   
+      !p%Elems(I, 5) = property set for node 2
          
       DO n=4,5 ! Member column for MPropSetID1 and MPropSetID2
       
@@ -237,7 +238,7 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
          found = .false.      
          DO WHILE ( .NOT. found .AND. J <= Init%NPropSets )
             IF ( Prop == NINT(Init%PropSets(J, 1)) ) THEN
-               p%Elems(I, n) = Init%NXPropSets + J  ! index of the property set n-3 (i.e., property sets 1 and 2)  ! note that previously, this used Prop instead of J, which assumed the list of MemberIDs was sequential, starting at 1.
+               p%Elems(I, n) = Prop  ! adding this property ID to the p%Elems array
                found = .TRUE.
             END IF
             J = J + 1
@@ -247,7 +248,17 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
          J = 1
          DO WHILE ( .NOT. found .AND. J <= Init%NXPropSets )
             IF ( Prop == NINT(Init%XPropSets(J, 1)) ) THEN
-               p%Elems(I, n) = J                    ! index of the property set n-3 (i.e., property sets 1 and 2)
+               p%Elems(I, n) = Prop  ! adding this property ID to the p%Elems array
+               found = .TRUE.
+            END IF
+            J = J + 1
+         END DO
+
+         !bas, search also in XFSMPropSets for matching property sets. Note that double occurrence of PropSetIDs is impossible, because it has already been checked within the SubDyn:SD_Input subroutine.
+         J = 1
+         DO WHILE ( .NOT. found .AND. J <= Init%NXFSMPropSets )
+            IF ( Prop == NINT(Init%XFSMPropSets((J-1) * XFSMPropSetsRow + 1, 1)) ) THEN
+               p%Elems(I, n) = Prop  ! adding this property ID to the p%Elems array
                found = .TRUE.
             END IF
             J = J + 1
@@ -267,21 +278,14 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
    ! Conversion from circular PropSets to arbitrary XPropSets with engineering constants
    CALL ConvertPropSets(Init)
    ! Conversion from arbitrary XPropSets with engineering constants to arbitrary XFSMPropSets with full structural matrices
-   CALL ConvertXPropSets(Init)
-
-   DO I = 1, Init%NXFSMPropSets
-       WRITE(*,*) " "
-       DO J = 1, XFSMPropSetsRow
-          WRITE(*, '(6(E15.4))') Init%XFSMPropSets((I-1)*XFSMPropSetsRow + J,:)
-       ENDDO
-   ENDDO 
+   CALL ConvertXPropSets(Init) 
    
    ! Initialize TempMembers
    TempMembers = p%Elems(1:p%NMembers,:)
    
    ! Initialize Temp property set, first user defined sets
    TempProps = 0
-   TempProps(1:Init%NXPropSets, :) = Init%XPropSets   
+   TempProps(1:Init%NXFSMPropSets * XFSMPropSetsRow, :) = Init%XFSMPropSets
    
    ! Initialize boundary constraint vector
    ! Change the node number
@@ -354,12 +358,15 @@ SUBROUTINE SD_Discrt(Init,p, ErrStat, ErrMsg)
          ENDIF
       ENDDO
    ENDDO
+   
 
-! discretize structure according to NDiv 
+! Discretize structure according to NDiv 
 
 knode = Init%NJoints
 kelem = 0
-kprop = Init%NXPropSets
+kprop = Init%NXFSMPropSets  ! guess the last XFSMPropSetID
+nkprop = Init%NXFSMPropSets ! current number of XFSMPropSets
+kpropi = Init%NXFSMPropSets * XFSMPropSetsRow + 1 ! start index of the next XFSMPropSet
 Init%MemberNodes = 0
 Init%MemberElements = 0
 
@@ -387,14 +394,16 @@ IF (Init%NDiv .GT. 1) THEN
       MID = Init%Members(I,1)
       Init%MemberElements(I, 1) = MID ! write current MemberID to Init%MemberElements
       
-      IF  ( ( .not. EqualRealNos(TempProps(Prop1, 2),TempProps(Prop2, 2) ) ) &
-       .OR. ( .not. EqualRealNos(TempProps(Prop1, 3),TempProps(Prop2, 3) ) ) &
-       .OR. ( .not. EqualRealNos(TempProps(Prop1, 4),TempProps(Prop2, 4) ) ) )  THEN
+      ! This must not be checked any more, because geometrical and material information are already merged within the cross sectional matrices
+      ! Furthermore, it is possible to have different materials on both ends of the beam
+      !IF  ( ( .not. EqualRealNos(TempProps(Prop1, 2),TempProps(Prop2, 2) ) ) &
+       !.OR. ( .not. EqualRealNos(TempProps(Prop1, 3),TempProps(Prop2, 3) ) ) &
+       !.OR. ( .not. EqualRealNos(TempProps(Prop1, 4),TempProps(Prop2, 4) ) ) )  THEN
       
-         CALL SetErrStat(ErrID_Fatal,' Material E,G and rho in a member must be the same', ErrStat,ErrMsg,'SD_Discrt');
-         CALL CleanUp_Discrt()
-         RETURN
-      ENDIF
+         !CALL SetErrStat(ErrID_Fatal,' Material E,G and rho in a member must be the same', ErrStat,ErrMsg,'SD_Discrt');
+         !CALL CleanUp_Discrt()
+         !RETURN
+      !ENDIF
 
       x1 = Init%Nodes(Node1, 2)
       y1 = Init%Nodes(Node1, 3)
@@ -408,50 +417,31 @@ IF (Init%NDiv .GT. 1) THEN
       dy = ( y2 - y1 )/Init%NDiv
       dz = ( z2 - z1 )/Init%NDiv
       
-      A1 = TempProps(Prop1, 5)
-      Ax1 = TempProps(Prop1, 6)
-      Ay1 = TempProps(Prop1, 7)
-      Axy1 = TempProps(Prop1, 8)
-      xs1 = TempProps(Prop1, 9)
-      ys1 = TempProps(Prop1, 10)
-      Jx1 = TempProps(Prop1, 11)
-      Jy1 = TempProps(Prop1, 12)
-      Jxy1 = TempProps(Prop1, 13)
-      Jz1 = TempProps(Prop1, 14)
-
-      A2 = TempProps(Prop2, 5)
-      Ax2 = TempProps(Prop2, 6)
-      Ay2 = TempProps(Prop2, 7)
-      Axy2 = TempProps(Prop2, 8)
-      xs2 = TempProps(Prop2, 9)
-      ys2 = TempProps(Prop2, 10)
-      Jx2 = TempProps(Prop2, 11)
-      Jy2 = TempProps(Prop2, 12)
-      Jxy2 = TempProps(Prop2, 13)
-      Jz2 = TempProps(Prop2, 14)
+      ! Search for Prop1 and Prop2 indexes Prop1i and Prop2i within XFSMPropSets
+      DO J = 1, Init%NXFSMPropSets
+         IF (Init%XFSMPropSets((J-1)*XFSMPropSetsRow + 1, 1) == Prop1) THEN
+            Prop1i = (J-1)*XFSMPropSetsRow + 1
+         END IF
+         IF (Init%XFSMPropSets((J-1)*XFSMPropSetsRow + 1, 1) == Prop2) THEN
+            Prop2i = (J-1)*XFSMPropSetsRow + 1
+         END IF
+      ENDDO
       
-      dA   = ( A2 - A1 )/Init%NDiv
-      dAx  = ( Ax2 - Ax1 )/Init%NDiv
-      dAy  = ( Ay2 - Ay1 )/Init%NDiv
-      dAxy = ( Axy2 - Axy1 )/Init%NDiv
-      dxs  = ( xs2 - xs1 )/Init%NDiv
-      dys  = ( ys2 - ys1 )/Init%NDiv
-      dJx  = ( Jx2 - Jx1 )/Init%NDiv
-      dJy  = ( Jy2 - Jy1 )/Init%NDiv
-      dJxy = ( Jxy2 - Jxy1 )/Init%NDiv
-      dJz  = ( Jz2 - Jz1 )/Init%NDiv
+      ! get the structural matrices at the beginning and at the end of this member
+      SM1 = TempProps(Prop1i + 1 : Prop1i + XFSMPropSetsRow, :)
+      SM2 = TempProps(Prop2i + 1 : Prop1i + XFSMPropSetsRow, :)
       
-         ! If dA and dAx and dAy and dIxx and dIyy and dJzz are 0, no interpolation is needed, and we can use the same property set for new nodes/elements. otherwise we'll have to create new properties for each new node
-      CreateNewProp = .NOT. ( EqualRealNos( dA , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dAx , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dAy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dAxy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dxs , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dys , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dJx , 0.0_ReKi ) .AND. & 
-                              EqualRealNos( dJy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dJxy , 0.0_ReKi ) .AND. &
-                              EqualRealNos( dJz , 0.0_ReKi ) )  
+      ! calculate the difference between both structural matrices
+      dSM   = ( SM2 - SM1 )/Init%NDiv
+      ! If all elements of dSM are zero, no interpolation is needed, and we can use the same property set for new nodes/elements. otherwise we'll have to create new properties for each new node
+      CreateNewProp = .FALSE.
+      DO J = 1, 12
+         DO K = 1, 6
+            IF (dSM(J,K) /= 0) THEN 
+                CreateNewProp = .TRUE.
+            END IF
+         ENDDO
+      ENDDO
       
       ! node connect to Node1
       knode = knode + 1
@@ -460,12 +450,24 @@ IF (Init%NDiv .GT. 1) THEN
       
       
       IF ( CreateNewProp ) THEN   
-           ! create a new property set 
-           ! k, E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz, Init
+           ! create a new property set consisting out of full cross sectional 6x6 stiffness and 6x6 mass matrices
            
            kprop = kprop + 1
-           CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), A1+dA, Ax1+dAx, Ay1+dAy, Axy1+dAxy, xs1+dxs, ys1+dys, Jx1+dJx, Jy1+dJy, Jxy1+dJxy, Jz1+dJz, TempProps)           
+           nkprop = nkprop + 1
+           ! check, if this new property ID, kprop, does exist within the existing XFSMPropSetIDs. If it exists, add 1 to kprop as long as this ID does not occur a second time in the XFSMPropSetIDs
+           Got_new_prop = .TRUE.
+1023       IF (Got_new_prop) THEN
+              Got_new_prop = .FALSE.
+              DO J = 1, Init%NXFSMPropSets
+                  IF (Init%XFSMPropSets((J-1)*XFSMPropSetsRow + 1, 1) == kprop) THEN
+                     kprop = kprop + 1
+                     Got_new_prop = .TRUE.
+                  END IF
+              ENDDO
+              GOTO 1023
+           END IF
+           CALL GetNewXFSMProp(kpropi, kprop, SM1 + dSM, TempProps)   
+           kpropi = kpropi + XFSMPropSetsRow
            kelem = kelem + 1
            CALL GetNewElem(kelem, Node1, knode, Prop1, kprop, MID, p)  
            nprop = kprop              
@@ -486,13 +488,24 @@ IF (Init%NDiv .GT. 1) THEN
          CALL GetNewNode(knode, x1 + J*dx, y1 + J*dy, z1 + J*dz, Init)
          
          IF ( CreateNewProp ) THEN   
-              ! create a new property set 
-              ! k, E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz
+              ! create a new property set consisting out of full cross sectional 6x6 stiffness and 6x6 mass matrices
               
               kprop = kprop + 1
-           CALL GetNewXProp(kprop, TempProps(Prop1, 2), TempProps(Prop1, 3),&
-                           TempProps(Prop1, 4), A1 + J*dA, Ax1 + J*dAx, Ay1 + J*dAy,&
-                           Axy1 + J*dAxy, xs1 + J*dxs, ys1 + J*dys, Jx1 + J*dJx, Jy1 + J*dJy, Jxy1 + J*dJxy, Jz1 + J*dJz, TempProps)          
+              nkprop = nkprop + 1
+              ! check, if this new property ID, kprop, does exist within the existing XFSMPropSetIDs. If it exists, add 1 to kprop as long as this ID does not occur a second time in the XFSMPropSetIDs
+              Got_new_prop = .TRUE.
+1033          IF (Got_new_prop) THEN
+                 Got_new_prop = .FALSE.
+                 DO K = 1, Init%NXFSMPropSets
+                     IF (Init%XFSMPropSets((K-1)*XFSMPropSetsRow + 1, 1) == kprop) THEN
+                        kprop = kprop + 1
+                        Got_new_prop = .TRUE.
+                     END IF
+                 ENDDO
+                 GOTO 1033
+              END IF
+              CALL GetNewXFSMProp(kpropi, kprop, SM1 + J * dSM, TempProps)
+              kpropi = kpropi + XFSMPropSetsRow
               kelem = kelem + 1
               CALL GetNewElem(kelem, knode-1, knode, nprop, kprop, MID, p)
               nprop = kprop                
@@ -521,8 +534,8 @@ ELSE ! NDiv = 1
 ENDIF ! if NDiv is greater than 1
 
 ! set the props in Init
-Init%NProp = kprop
-CALL AllocAry(Init%Props, Init%NProp, XPropSetsCol,  'Init%Props', ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
+Init%NProp = nkprop
+CALL AllocAry(Init%Props, Init%NProp * XFSMPropSetsRow, XFSMPropSetsCol,  'Init%Props', ErrStat2, ErrMsg2); CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'SD_Discrt')
    IF (ErrStat >= AbortErrLev ) THEN
       CALL SetErrStat(ErrStat2,ErrMsg2, ErrStat,ErrMsg,'SD_Discrt');
       CALL CleanUp_Discrt()
@@ -530,6 +543,14 @@ CALL AllocAry(Init%Props, Init%NProp, XPropSetsCol,  'Init%Props', ErrStat2, Err
 ENDIF
 
 Init%Props = TempProps(1:Init%NProp, :)
+
+WRITE(*,*) "New interpolated property sets:"
+DO I = 1, Init%NProp
+    WRITE(*,*) " "
+    DO J = 1, XFSMPropSetsRow
+        WRITE(*, '(6(E15.4))') Init%Props((I-1)*XFSMPropSetsRow + J,:)
+    ENDDO
+ENDDO 
 
 CALL CleanUp_Discrt()
 
@@ -625,6 +646,22 @@ SUBROUTINE GetNewXProp(k, E, G, rho, A, Ax, Ay, Axy, xs, ys, Jx, Jy, Jxy, Jz, Te
    TempProps(k, 14) = Jz
 
 END SUBROUTINE GetNewXProp
+!------------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------------
+SUBROUTINE GetNewXFSMProp(TP_index, New_ID, SM, TempProps)
+! This subroutine adds the interpolated property sets to the end of the TempProps array
+   
+   INTEGER   , INTENT(IN)   :: New_ID, TP_index
+   REAL(ReKi), INTENT(IN)   :: SM(12,6)
+   REAL(ReKi), INTENT(INOUT):: TempProps(:, :)
+   
+   ! set ID of new prop set
+   TempProps(TP_index, 1) = New_ID
+   
+   ! set interpolated values between both ends of the member to this new propset
+   TempProps(TP_index+1 : TP_index + XFSMPropSetsRow-1, :) = SM
+
+END SUBROUTINE GetNewXFSMProp
 !------------------------------------------------------------------------------------------------------
 !------------------------------------------------------------------------------------------------------
 SUBROUTINE ConvertPropSets(Init)

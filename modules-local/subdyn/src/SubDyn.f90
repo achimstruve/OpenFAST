@@ -1763,8 +1763,10 @@ IF ( Sttus /= 0 )  THEN
 ENDIF
 
 JunkStrg='Blank line'
-DO I = 1, Init%NXFSMPropSets
+! initialize XFSMPropSet values to zero
+Init%XFSMPropSets = 0
 
+DO I = 1, Init%NXFSMPropSets
    DO J = 1, XFSMPropSetsRow + 1
        IF (J == 1) THEN
        !bas read the propterty ID
