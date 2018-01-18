@@ -1808,7 +1808,7 @@ DO I = 1, Init%NXFSMPropSets
        END IF
    ENDDO
    !bas, check if this XFSMPropSetIDs is eual to another XFSMPropSetID
-    DO K = 1, Init%NXFSMPropSets + 1
+    DO K = 1, Init%NXFSMPropSets
         IF ((I /= K) .AND. ((Init%XFSMPropSets(1 + (I-1)*XFSMPropSetsRow,1) == Init%XFSMPropSets(1 + (K-1)*XFSMPropSetsRow,1)))) THEN
             ErrMsg = ' Error in file "'//TRIM(SDInputFile)//': Each XFSMPropSetID should be set uniquely.'
             ErrStat = ErrID_Fatal
@@ -1819,7 +1819,7 @@ DO I = 1, Init%NXFSMPropSets
 ENDDO
 
 !bas, check if one of the XFSMPropSetIDs or XPropSetIDs or PropSetIDs is equal to another
-DO K = 1, Init%NXFSMPropSets + 1
+DO K = 1, Init%NXFSMPropSets
     DO J = 1, Init%NXPropSets
         DO I = 1, Init%NPropSets
             IF ((Init%XFSMPropSets(1+(K-1)*XFSMPropSetsRow,1) == Init%XPropSets(J,1)) .OR. (Init%XFSMPropSets(1+(K-1)*XFSMPropSetsRow,1) == Init%PropSets(I,1)) .OR. (Init%XPropSets(J,1) == Init%PropSets(I,1))) THEN
